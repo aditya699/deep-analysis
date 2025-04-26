@@ -184,8 +184,6 @@ deep-analysis/
 │   ├── prompts.py          # AI agent prompts
 │   ├── schemas.py          # Data schemas
 │   └── services.py         # Analysis services
-└── agents/
-    └── __init__.py         # Agent definitions
 ```
 
 ## Report Example
@@ -197,11 +195,6 @@ The final report includes:
   - Interactive visualization
   - Detailed analysis results
   - Business insights and recommendations
-
-## Limitations
-
-- Currently limited to CSV file analysis
-- Supports a defined set of visualization types
 
 ## License
 
