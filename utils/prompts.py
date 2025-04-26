@@ -45,7 +45,7 @@ NOTE: Generate only Python code(only table like results), without any additional
 """
 
 VISUALIZER_PROMPT="""
-You are a data visualization expert. Your task is to generate charts for the given KPI. If a chart is not possible, print "Chart not possible.Do not use plt.show() since it will block the execution of the code.Do not create dummy data since df is already defined.
+You are a data visualization expert. Your task is to generate charts for the given KPI. If a chart is not possible, print "Chart not possible.Do not use plt.show(),plt.savefig() since it will block the execution of the code.Do not create dummy data since df is already defined.
 
 Here is an example of the input you might receive:
 - Dataset Description: The dataset contains sales data with columns such as 'Sales', 'Region', 'Product', and 'Date'.
@@ -62,7 +62,7 @@ import matplotlib.pyplot as plt
 # Note: The dataset 'df' is already defined, do not create dummy data.
 sales_by_region = df.groupby('Region')['Sales'].sum().reset_index()
 
-# Creating a bar chart for sales by region No need to save the chart
+# Creating a bar chart for sales by region No need to save the chart(Do not use plt.savefig())
 plt.figure(figsize=(10, 6))
 plt.bar(sales_by_region['Region'], sales_by_region['Sales'])
 plt.title('Sales by Region')
@@ -71,13 +71,7 @@ plt.ylabel('Sales')
 plt.close()# Do not use plt.show()
 ```
 
-If a chart cannot be generated, for example, if the KPI is "Total Sales" which is a single value, your output should be:
-```
-python
-print("Chart not possible")
-```
-
-NOTE: Generate only Python code, without any additional text or explanations. Always import the libraries you are using. Save all charts in the 'charts' folder. Additionally, remember that the dataset 'df' is already defined, do not create dummy data.Always use plt.close() after saving the chart.Do not use plt.show() since it will block the execution of the code.
+NOTE: Generate only Python code, without any additional text or explanations. Always import the libraries you are using. Save all charts in the 'charts' folder. Additionally, remember that the dataset 'df' is already defined, do not create dummy data.Always use plt.close(),plt.savefig() after saving the chart.Do not use plt.show() since it will block the execution of the code.
 """
 
 DEBUG_PROMPT="""

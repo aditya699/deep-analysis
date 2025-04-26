@@ -277,7 +277,10 @@ async def run_analysis(task_id: str, file_url: str, client):
 
         #clean up the master data dictionary file
         os.remove(data_file_path)
-        
+        # Delete the charts folder if it exists
+        if os.path.exists("charts") and os.path.isdir("charts"):
+            import shutil
+            shutil.rmtree("charts")
     except Exception as e:
         # Log the error
         error_detail = str(e)
