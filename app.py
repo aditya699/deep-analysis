@@ -8,6 +8,8 @@ NOTE:
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from utils.file_processor import process_uploaded_file, get_task_status_from_db
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 import uvicorn
 
 # Initialize FastAPI app
@@ -28,8 +30,8 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    """Root endpoint that returns a welcome message"""
-    return {"message": "Welcome to the Deep Analysis API"}
+    return HTMLResponse(content=open("templates/index.html").read())
+
 
 @app.get("/health")
 def health_check():
