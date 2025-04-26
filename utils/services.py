@@ -101,7 +101,7 @@ async def get_kpi(prompt:str,client:Request)->list:
         kpi_names = kpi_result.final_output.kpi_names
 
         #Filter two kpi names for testing
-        kpi_names = kpi_names[:2]
+        # kpi_names = kpi_names[:2]
 
         db = client['Python-Data-Analyst']
         collection = db['logs']
@@ -451,6 +451,13 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
         else:
             clean_python_code += save_code
 
+        # Add matplotlib Agg backend to prevent tkinter threading issues
+        matplotlib_import_line = "import matplotlib\nmatplotlib.use('Agg')\n"
+        if "import matplotlib.pyplot" in clean_python_code and "matplotlib.use" not in clean_python_code:
+            clean_python_code = clean_python_code.replace("import matplotlib.pyplot", f"{matplotlib_import_line}import matplotlib.pyplot")
+        elif "import matplotlib" not in clean_python_code:
+            clean_python_code = f"{matplotlib_import_line}{clean_python_code}"
+
         # Create a namespace for the python code
         namespace = {"df": df, "pd": pd, "np": np}
 
@@ -458,9 +465,28 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
         with redirect_stdout(f1):
             execution_result = await execute_with_debug(clean_python_code, namespace, kpi_name, dataset_prompt, client)
         
-
         # Upload the visualization to blob storage
         try:
+            # Check if the file exists before trying to upload it
+            if not os.path.exists(file_name):
+                # Log the issue
+                await collection.insert_one({
+                    "timestamp": datetime.now(),
+                    "kpi_name": kpi_name,
+                    "status": "error",
+                    "error": "Visualization file was not created",
+                    "code": clean_python_code,
+                    "message": "Failed to create visualization file"
+                })
+                
+                # Return error info
+                return {
+                    "status": "error",
+                    "message": "Could not generate visualization",
+                    "kpi_name": kpi_name,
+                    "visualization_url": None
+                }
+                
             container_client = blob_client.get_container_client(container_name)
             
             # Upload the file to blob storage
@@ -506,14 +532,15 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
                 "message": f"Error uploading visualization to blob storage: {error_message}"
             })
             
-            # Still return the local file path if blob upload fails
+                    # Return error info instead of local file path
             return {
-                "status": "partial_success",
-                "local_file_path": file_name,
+                "status": "error",
+                "error": error_message,
                 "kpi_name": kpi_name,
-                "message": "Visualization generated but failed to upload to blob storage"
+                "message": "Failed to upload visualization to blob storage",
+                "visualization_url": None  # No URL available since upload failed
             }
-            
+                        
     except Exception as e:
         error_message = str(e)
         print(f"Error generating visualization: {error_message}")
@@ -529,7 +556,14 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
             "message": f"Error generating visualization: {error_message}"
         })
         
-        return HTTPException(status_code=500, detail=f"Error generating visualization: {error_message}")
+        # Return error info instead of raising exception
+        return {
+            "status": "error",
+            "error": error_message,
+            "message": "Failed to generate visualization",
+            "kpi_name": kpi_name,
+            "visualization_url": None
+        }
 
 async def get_insights_from_openai(insights:str,client:Request)->str:
     """

@@ -54,25 +54,20 @@ Here is an example of the input you might receive:
 Based on this input, your output must be formatted as Python code:
 ```
 python
-import os
+#Import the libraries
 import pandas as pd
 import matplotlib.pyplot as plt
-
-# Create the charts directory if it doesn't exist
-if not os.path.exists('charts'):
-    os.makedirs('charts')
 
 # Grouping the sales data by region
 # Note: The dataset 'df' is already defined, do not create dummy data.
 sales_by_region = df.groupby('Region')['Sales'].sum().reset_index()
 
-# Creating a bar chart for sales by region
+# Creating a bar chart for sales by region No need to save the chart
 plt.figure(figsize=(10, 6))
 plt.bar(sales_by_region['Region'], sales_by_region['Sales'])
 plt.title('Sales by Region')
 plt.xlabel('Region')
 plt.ylabel('Sales')
-plt.savefig('charts/sales_by_region.png')
 plt.close()# Do not use plt.show()
 ```
 

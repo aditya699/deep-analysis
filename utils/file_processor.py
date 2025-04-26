@@ -7,7 +7,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 import traceback
 import json
-
+import matplotlib
+# Set matplotlib to use Agg backend to avoid Tkinter threading issues
+matplotlib.use('Agg')
 load_dotenv()
 
 async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTasks = None):
@@ -38,9 +40,7 @@ async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTa
         # Create a unique filename
         file_id = str(uuid.uuid4())
         unique_filename = file_id
-        if file.filename:
-            unique_filename += f"-{file.filename}"
-            
+    
         # Upload the file to blob storage
         blob_client = container_client.get_blob_client(unique_filename)
         blob_client.upload_blob(file_content)
@@ -91,7 +91,8 @@ async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTa
         return {
             "message": f"File {file.filename} uploaded successfully. Analysis started.",
             "task_id": task_id,
-            "status": "pending"
+            "status": "pending",
+            "file_url": blob_client.url
         }
         
     except Exception as e:
@@ -270,6 +271,12 @@ async def run_analysis(task_id: str, file_url: str, client):
         
         # Clean up temporary file
         os.remove(local_file_path)
+
+        #Clean up the report file
+        os.remove(report_file_path)
+
+        #clean up the master data dictionary file
+        os.remove(data_file_path)
         
     except Exception as e:
         # Log the error
