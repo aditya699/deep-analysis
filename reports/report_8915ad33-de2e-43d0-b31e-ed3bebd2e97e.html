@@ -1,0 +1,506 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deep Analysis Report</title>
+        <style>
+            :root {
+                --primary-color: #1a73e8;
+                --secondary-color: #f5f7fa;
+                --accent-color: #4285f4;
+                --text-color: #202124;
+                --light-text: #5f6368;
+                --border-color: #dadce0;
+                --success-color: #0f9d58;
+                --info-color: #137cbd;
+                --warning-color: #f9a825;
+                --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                line-height: 1.6;
+                color: var(--text-color);
+                background-color: #f8f9fa;
+                padding-bottom: 40px;
+            }
+            
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 0 20px;
+            }
+            
+            header {
+                background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+                color: white;
+                padding: 40px 0;
+                margin-bottom: 40px;
+            }
+            
+            header .container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            
+            header h1 {
+                font-size: 2.5rem;
+                margin-bottom: 10px;
+                font-weight: 300;
+                letter-spacing: 0.5px;
+            }
+            
+            header p {
+                font-size: 1.1rem;
+                opacity: 0.9;
+            }
+            
+            .summary-section {
+                background-color: white;
+                border-radius: 8px;
+                padding: 25px;
+                margin-bottom: 40px;
+                box-shadow: var(--box-shadow);
+            }
+            
+            .summary-section h2 {
+                color: var(--primary-color);
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+                font-weight: 400;
+                border-bottom: 2px solid var(--border-color);
+                padding-bottom: 10px;
+            }
+            
+            .kpi-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-top: 15px;
+            }
+            
+            .kpi-tag {
+                background-color: var(--secondary-color);
+                border-radius: 20px;
+                padding: 8px 16px;
+                font-size: 0.9rem;
+                color: var(--primary-color);
+                border: 1px solid var(--border-color);
+            }
+            
+            .kpi-cards {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 20px;
+                margin-top: 20px;
+            }
+            
+            .kpi-card {
+                background-color: rgba(var(--primary-color-rgb), 0.05);
+                border-radius: 8px;
+                padding: 20px;
+                transition: transform 0.3s ease;
+                cursor: pointer;
+                border-left: 4px solid var(--primary-color);
+            }
+            
+            .kpi-card:hover {
+                transform: translateY(-5px);
+            }
+            
+            .kpi-card h3 {
+                color: var(--primary-color);
+                margin-bottom: 10px;
+                font-weight: 500;
+            }
+            
+            .kpi-section {
+                background-color: white;
+                border-radius: 8px;
+                margin-bottom: 40px;
+                overflow: hidden;
+                box-shadow: var(--box-shadow);
+            }
+            
+            .kpi-header {
+                background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+                color: white;
+                padding: 20px 25px;
+                position: relative;
+            }
+            
+            .kpi-header h2 {
+                font-size: 1.8rem;
+                font-weight: 400;
+            }
+            
+            .kpi-content {
+                padding: 25px;
+            }
+            
+            .visualization {
+                text-align: center;
+                margin: 20px 0 30px;
+                padding: 10px;
+                background-color: var(--secondary-color);
+                border-radius: 8px;
+            }
+            
+            .visualization img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 4px;
+                box-shadow: var(--box-shadow);
+            }
+            
+            .analysis-container, .insights-container {
+                margin-bottom: 30px;
+            }
+            
+            .analysis-container h3, .insights-container h3 {
+                font-size: 1.4rem;
+                color: var(--primary-color);
+                margin-bottom: 15px;
+                font-weight: 500;
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 10px;
+            }
+            
+            .analysis-content {
+                background-color: var(--secondary-color);
+                padding: 20px;
+                border-radius: 8px;
+                font-family: 'Courier New', Courier, monospace;
+                white-space: pre-wrap;
+                overflow-x: auto;
+                border-left: 4px solid var(--info-color);
+            }
+            
+            .insights-content {
+                background-color: rgba(15, 157, 88, 0.1);
+                padding: 20px;
+                border-radius: 8px;
+                line-height: 1.7;
+                border-left: 4px solid var(--success-color);
+            }
+            
+            .insights-content p {
+                margin-bottom: 15px;
+            }
+            
+            .back-to-top {
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                cursor: pointer;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.5rem;
+                transition: background-color 0.3s;
+            }
+            
+            .back-to-top:hover {
+                background-color: var(--accent-color);
+            }
+            
+            footer {
+                margin-top: 40px;
+                text-align: center;
+                color: var(--light-text);
+                font-size: 0.9rem;
+            }
+            
+            /* Navigation */
+            .navbar {
+                position: sticky;
+                top: 0;
+                background-color: white;
+                box-shadow: var(--box-shadow);
+                z-index: 100;
+                margin-bottom: 40px;
+            }
+            
+            .nav-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+            }
+            
+            .logo {
+                font-size: 1.4rem;
+                font-weight: 600;
+                color: var(--primary-color);
+            }
+            
+            .nav-links {
+                display: flex;
+                gap: 20px;
+            }
+            
+            .nav-link {
+                color: var(--text-color);
+                text-decoration: none;
+                padding: 8px 12px;
+                border-radius: 4px;
+                transition: background-color 0.3s;
+            }
+            
+            .nav-link:hover {
+                background-color: var(--secondary-color);
+                color: var(--primary-color);
+            }
+            
+            /* Responsive styles */
+            @media (max-width: 768px) {
+                .kpi-header h2 {
+                    font-size: 1.5rem;
+                }
+                
+                .kpi-content {
+                    padding: 15px;
+                }
+                
+                header h1 {
+                    font-size: 2rem;
+                }
+            }
+            
+            /* Custom scrollbar */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            
+            ::-webkit-scrollbar-track {
+                background: #f1f1f1;
+            }
+            
+            ::-webkit-scrollbar-thumb {
+                background: var(--primary-color);
+                border-radius: 4px;
+            }
+            
+            ::-webkit-scrollbar-thumb:hover {
+                background: var(--accent-color);
+            }
+            
+            /* Animation */
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .kpi-section {
+                animation: fadeIn 0.5s ease-out forwards;
+            }
+            
+            .kpi-section:nth-child(1) { animation-delay: 0.1s; }
+            .kpi-section:nth-child(2) { animation-delay: 0.2s; }
+            .kpi-section:nth-child(3) { animation-delay: 0.3s; }
+            .kpi-section:nth-child(4) { animation-delay: 0.4s; }
+            .kpi-section:nth-child(5) { animation-delay: 0.5s; }
+        </style>
+    </head>
+    <body>
+        <!-- Back to top button -->
+        <button class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑</button>
+        
+        <!-- Header -->
+        <header>
+            <div class="container">
+                <h1>Deep Analysis Report</h1>
+                <p>Generated on 2025-04-26 08:40:22</p>
+            </div>
+        </header>
+        
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="container nav-container">
+                <div class="logo">Deep Analysis</div>
+                <div class="nav-links">
+                    <a href="#summary" class="nav-link">Summary</a>
+                    <a href="#kpis" class="nav-link">KPIs</a>
+                </div>
+            </div>
+        </nav>
+        
+        <!-- Summary Section -->
+        <section id="summary" class="container">
+            <div class="summary-section">
+                <h2>Executive Summary</h2>
+                <p>This report presents a comprehensive deep analysis of 2 key performance indicators derived from the dataset. Each KPI is analyzed with detailed metrics, visualizations, and business insights to support data-driven decision making.</p>
+                
+                <div class="executive-insights-container"><h3 style="margin-top: 20px; color: var(--primary-color);">AI-Generated Summary</h3><div class="executive-insights-content">The analysis of follower and following count distributions across 1,000 entities highlights a broadly balanced and diverse user base, with average follower and following counts around 500,000 and wide variability indicating representation at all engagement levels. This uniform spread without extreme skew shows a healthy ecosystem comprised of micro, mid-tier, and high-reach accounts, offering distinct opportunities for tailored marketing and partnership strategies. Notably, the presence of substantial mid-tier entities (100K–500K followers) presents a valuable segment for cost-efficient, high-impact campaigns, while high-follower accounts remain critical for brand amplification and broad reach. Similarly, the wide range in following counts underscores varied user engagement patterns, signaling the potential for personalized content and outreach to stimulate activity and deepen platform loyalty. From a strategic perspective, segmenting the audience into clear tiers based on follower and following counts will allow for optimized resource allocation, focusing efforts where engagement and ROI are strongest. Additionally, pursuing in-depth analysis of conversion rates and engagement metrics within each bracket can identify underleveraged partnerships, particularly among mid-to-high follower accounts, enabling growth through strategic collaborations. Enhancing platform features to encourage growth in mid-tier engagement also offers a promising avenue to increase overall activity and monetization potential. Overall, the balanced and diversified follower landscape is a key strength; by leveraging this segmentation with targeted approaches, the business can maximize market penetration, improve campaign effectiveness, and drive scalable growth.</div></div>
+                
+                <h3 style="margin-top: 20px; color: var(--primary-color);">Analyzed KPIs</h3>
+                <div class="kpi-list">
+    <span class="kpi-tag">Followers Count Distribution</span>
+<span class="kpi-tag">Following Count Distribution</span>
+<span class="kpi-tag">summary</span>
+
+                </div>
+                
+                <h3 style="margin-top: 25px; color: var(--primary-color);">Quick Navigation</h3>
+                <div class="kpi-cards">
+    
+                    <div class="kpi-card" onclick="document.getElementById('Followers_Count_Distribution').scrollIntoView({behavior: 'smooth'})">
+                        <h3>Followers Count Distribution</h3>
+                        <p>View analysis and insights</p>
+                    </div>
+        
+                    <div class="kpi-card" onclick="document.getElementById('Following_Count_Distribution').scrollIntoView({behavior: 'smooth'})">
+                        <h3>Following Count Distribution</h3>
+                        <p>View analysis and insights</p>
+                    </div>
+        
+                    <div class="kpi-card" onclick="document.getElementById('summary').scrollIntoView({behavior: 'smooth'})">
+                        <h3>summary</h3>
+                        <p>View analysis and insights</p>
+                    </div>
+        
+                </div>
+            </div>
+        </section>
+        
+        <!-- KPIs Section -->
+        <section id="kpis" class="container">
+    
+            <div id="Followers_Count_Distribution" class="kpi-section">
+                <div class="kpi-header">
+                    <h2>Followers Count Distribution</h2>
+                </div>
+                <div class="kpi-content">
+                    <!-- Visualization -->
+                    <div class="visualization">
+        <img src="https://test730305913143367.blob.core.windows.net/images-analysis/Followers_Count_Distribution_dddaac60-35b5-4b3c-9952-9ce443ba3e84.png" alt="Visualization for Followers Count Distribution">
+                    </div>
+                    
+                    <!-- Analysis Results -->
+                    <div class="analysis-container">
+                        <h3>Analysis Results</h3>
+                        <div class="analysis-content">
+count      1000.000000
+mean     513427.928000
+std      286602.044605
+min        2470.000000
+25%      277450.000000
+50%      514660.500000
+75%      763768.500000
+max      999652.000000
+Name: followers_count, dtype: float64
+followers_count
+(1472.818, 102188.2]    100
+(102188.2, 201906.4]     84
+(201906.4, 301624.6]     85
+(301624.6, 401342.8]    105
+(401342.8, 501061.0]    112
+(501061.0, 600779.2]     98
+(600779.2, 700497.4]    106
+(700497.4, 800215.6]    100
+(800215.6, 899933.8]    109
+(899933.8, 999652.0]    101
+Name: count, dtype: int64
+Code for 'Followers Count Distribution' executed successfully.
+
+                        </div>
+                    </div>
+                    
+                    <!-- Business Insights -->
+                    <div class="insights-container">
+                        <h3>Business Insights</h3>
+                        <div class="insights-content">
+                            The analysis of the Followers Count Distribution across 1,000 entities reveals a broadly uniform spread of follower counts, with an average around 513,000 and values ranging from about 2,470 to nearly 1 million. The standard deviation is fairly high (approximately 287,000), indicating notable variability in follower counts among the group. The data is well-distributed across all follower count brackets, with no extreme skew toward low or high values. The histogram visually confirms this, showing a relatively even frequency of entities in each follower bracket without pronounced peaks or troughs.
+
+From a business perspective, this balanced distribution suggests that the audience or partner pool is diversified in terms of reach, with substantial representation across all follower levels. This presents opportunities to tailor marketing, influencer engagement, or partnership strategies appropriately. For example, focusing on micro and mid-tier entities (around 100K to 500K followers) may allow for cost-effective, targeted campaigns with good engagement rates, while also leveraging high-follower accounts for broader brand awareness.
+
+Recommendations include segmenting the audience into defined tiers based on follower count to optimize resource allocation and campaign design. Additionally, investigating engagement rates and conversion metrics within each follower bracket can uncover where the highest ROI lies. There’s room to grow by identifying underutilized mid-to-high follower accounts for strategic collaborations. Overall, maintaining a diverse follower base is a strength, and leveraging it with tailored outreach can drive improved business outcomes.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <div id="Following_Count_Distribution" class="kpi-section">
+                <div class="kpi-header">
+                    <h2>Following Count Distribution</h2>
+                </div>
+                <div class="kpi-content">
+                    <!-- Visualization -->
+                    <div class="visualization">
+        <img src="https://test730305913143367.blob.core.windows.net/images-analysis/Following_Count_Distribution_7fd29e9d-0cf2-4830-8237-0abd1068b055.png" alt="Visualization for Following Count Distribution">
+                    </div>
+                    
+                    <!-- Analysis Results -->
+                    <div class="analysis-container">
+                        <h3>Analysis Results</h3>
+                        <div class="analysis-content">
+count      1000.00000
+mean     500707.16300
+std      294196.33868
+min        1508.00000
+25%      256454.50000
+50%      500435.50000
+75%      762359.00000
+max      999395.00000
+Name: following_count, dtype: float64
+Code for 'Following Count Distribution' executed successfully.
+
+                        </div>
+                    </div>
+                    
+                    <!-- Business Insights -->
+                    <div class="insights-container">
+                        <h3>Business Insights</h3>
+                        <div class="insights-content">
+                            The analysis of the Following Count Distribution across 1,000 data points reveals a broad spread in follower engagement, with the average following count near 500,707 and a wide standard deviation of approximately 294,196. This suggests considerable variability among users, ranging from a minimum of 1,508 to nearly 1 million, highlighting a diverse user base with both modest and highly active followers. The distribution visualization shows fairly evenly spread frequencies across the range, indicating no overwhelming concentration in any specific following count bracket, which supports the idea of a balanced user engagement spectrum. From a business perspective, this variety underscores the importance of segmenting users for targeted marketing strategies; smaller follower groups may benefit from personalized engagement tactics, while those with very high followings could be leveraged for influencer partnerships or large-scale promotions. Recommendations include developing tailored content and outreach programs catering to different follower tiers and exploring advanced analytics to identify key engagement drivers within each segment. Additionally, opportunities lie in optimizing platform features to encourage growth in mid-tier following groups, potentially boosting overall platform activity and monetization prospects. The insight from this distribution serves as a foundation for strategic initiatives aiming to enhance user engagement and expand market reach effectively.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+        </section>
+        
+        <!-- Footer -->
+        <footer class="container">
+            <p>© 2025 Deep Analysis. All rights reserved.</p>
+            <p style="margin-top: 10px;">Generated with ❤️ by Deep Analysis</p>
+        </footer>
+        
+        <script>
+            // JavaScript for interactive elements
+            document.addEventListener('DOMContentLoaded', function() {
+                // Show/hide back to top button based on scroll position
+                window.addEventListener('scroll', function() {
+                    const backToTopButton = document.querySelector('.back-to-top');
+                    if (window.scrollY > 300) {
+                        backToTopButton.style.display = 'flex';
+                    } else {
+                        backToTopButton.style.display = 'none';
+                    }
+                });
+                
+                // Initially hide the button
+                document.querySelector('.back-to-top').style.display = 'none';
+            });
+        </script>
+    </body>
+    </html>
+    

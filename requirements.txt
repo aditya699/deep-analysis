@@ -1,0 +1,15 @@
+openai-agents
+python-dotenv
+fastapi
+uvicorn
+pandas
+numpy
+python-multipart
+motor #async driver for mongodb
+streamlit
+matplotlib
+seaborn
+reportlab
+pytest 
+pytest-asyncio
+azure-storage-blob
