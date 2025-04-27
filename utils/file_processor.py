@@ -186,6 +186,15 @@ async def run_analysis(task_id: str, file_url: str, client):
         # Get KPIs
         kpi_names = await get_kpi(prompt, client)
         
+        # Update task with identified KPIs
+        await tasks_collection.update_one(
+            {"task_id": task_id},
+            {"$set": {
+                "identified_kpis": kpi_names,
+                "updated_at": datetime.now()
+            }}
+        )
+        
         # Initialize master data dictionary
         master_data_dictionary = {}
         insights_master = ""
@@ -195,12 +204,13 @@ async def run_analysis(task_id: str, file_url: str, client):
         for index, kpi_name in enumerate(kpi_names):
             current_progress = 0.3 + (0.6 * (index / total_kpis))
             
-            # Update task status
+            # Update task status when starting KPI
             await tasks_collection.update_one(
                 {"task_id": task_id},
                 {"$set": {
                     "progress": current_progress,
                     "message": f"Analyzing KPI: {kpi_name}",
+                    "current_kpi": kpi_name,
                     "updated_at": datetime.now()
                 }}
             )
@@ -218,10 +228,33 @@ async def run_analysis(task_id: str, file_url: str, client):
             visualization = await get_visualization(kpi_name, prompt, client, result, blob_service_client)
             master_data_dictionary[kpi_name]["visualization"] = visualization
             
+            # Update task with visualization URL
+            if visualization["status"] == "success" and "visualization_url" in visualization:
+                await tasks_collection.update_one(
+                    {"task_id": task_id},
+                    {"$set": {
+                        "progress": current_progress + 0.3 * (1/total_kpis),
+                        "message": f"Generated visualization for: {kpi_name}",
+                        "updated_at": datetime.now(),
+                        f"partial_results.{kpi_name}.visualization_url": visualization["visualization_url"]
+                    }}
+                )
+            
             # Generate insights for the KPI
             insights = await get_analysis_insights(kpi_name, client, analysis, visualization["visualization_url"])
             master_data_dictionary[kpi_name]["insights"] = insights
             insights_master += insights
+            
+            # Update task with insights
+            await tasks_collection.update_one(
+                {"task_id": task_id},
+                {"$set": {
+                    "progress": current_progress + 0.6 * (1/total_kpis),
+                    "message": f"Generated business insights for: {kpi_name}",
+                    "updated_at": datetime.now(),
+                    f"partial_results.{kpi_name}.insights": insights
+                }}
+            )
         
         # Generate summary of insights
         await tasks_collection.update_one(
@@ -235,6 +268,17 @@ async def run_analysis(task_id: str, file_url: str, client):
         
         summary = await get_insights_from_openai(insights_master, client)
         master_data_dictionary["summary"] = summary
+        
+        # Update with summary
+        await tasks_collection.update_one(
+            {"task_id": task_id},
+            {"$set": {
+                "progress": 0.95,
+                "message": "Summary generated, creating final report...",
+                "updated_at": datetime.now(),
+                "summary": summary
+            }}
+        )
         
         # Save the master data dictionary to a json file
         os.makedirs("reports", exist_ok=True)
@@ -272,15 +316,17 @@ async def run_analysis(task_id: str, file_url: str, client):
         # Clean up temporary file
         os.remove(local_file_path)
 
-        #Clean up the report file
+        # Clean up the report file
         os.remove(report_file_path)
 
-        #clean up the master data dictionary file
+        # Clean up the master data dictionary file
         os.remove(data_file_path)
+        
         # Delete the charts folder if it exists
         if os.path.exists("charts") and os.path.isdir("charts"):
             import shutil
             shutil.rmtree("charts")
+            
     except Exception as e:
         # Log the error
         error_detail = str(e)

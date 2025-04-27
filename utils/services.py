@@ -98,7 +98,7 @@ async def get_kpi(prompt:str,client:Request)->list:
         kpi_result = await Runner.run(agent_manager,prompt)
 
         #Extract the kpi names from the kpi result
-        kpi_names = kpi_result.final_output.kpi_names[:2]
+        kpi_names = kpi_result.final_output.kpi_names[:5]
 
         #Filter two kpi names for testing
         # kpi_names = kpi_names[:2]
@@ -441,6 +441,9 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
             clean_python_code = clean_python_code.split("```python")[1].split("```")[0].strip()
         elif "```" in clean_python_code:
             clean_python_code = clean_python_code.split("```")[1].split("```")[0].strip()
+            
+        # Remove plt.show() if it exists as it can block the backend
+        clean_python_code = clean_python_code.replace("plt.show()", "")
             
         # Add code to save figure to blob storage
         save_code = f"\n# Save figure to blob storage\nplt.savefig('{file_name}')\n"

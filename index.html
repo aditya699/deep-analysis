@@ -628,6 +628,18 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Partial Results Section -->
+                    <div class="partial-results" id="partialResults" style="margin-top: 30px; display: none;">
+                        <h3 style="font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; color: var(--dark);">
+                            <i class="fas fa-chart-line" style="color: var(--success);"></i>
+                            Preliminary Results
+                        </h3>
+                        
+                        <div class="kpi-results-container" id="kpiResultsContainer">
+                            <!-- KPI results will be dynamically added here -->
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="result-container" id="resultContainer">
@@ -761,7 +773,7 @@
             
             try {
                 // Submit file for analysis
-                const response = await fetch('http://localhost:8000/analyze/', {
+                const response = await fetch('http://127.0.0.1:8000/analyze/', {
                     method: 'POST',
                     body: formData
                 });
@@ -828,7 +840,7 @@
             
             while (!complete) {
                 try {
-                    const response = await fetch(`http://localhost:8000/task/${taskId}`);
+                    const response = await fetch(`http://127.0.0.1:8000/task/${taskId}`);
                     
                     if (!response.ok) {
                         throw new Error('Error checking task status');
@@ -849,6 +861,73 @@
                         
                         // Update steps
                         updateSteps(progress);
+                    }
+                    
+                    // Check for partial results
+                    if (data.partial_results) {
+                        // Show partial results container
+                        document.getElementById('partialResults').style.display = 'block';
+                        
+                        // Get container for KPI results
+                        const kpiContainer = document.getElementById('kpiResultsContainer');
+                        
+                        // Process each KPI with results
+                        for (const [kpiName, kpiData] of Object.entries(data.partial_results)) {
+                            // Check if we already have a section for this KPI
+                            let kpiSection = document.getElementById(`kpi-${kpiName.replace(/\s+/g, '-')}`);
+                            
+                            // If not, create one
+                            if (!kpiSection) {
+                                kpiSection = document.createElement('div');
+                                kpiSection.id = `kpi-${kpiName.replace(/\s+/g, '-')}`;
+                                kpiSection.className = 'kpi-result-card';
+                                kpiSection.style.cssText = 'background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; animation: fadeIn 0.5s ease;';
+                                
+                                // Add KPI title
+                                const kpiTitle = document.createElement('h4');
+                                kpiTitle.textContent = kpiName;
+                                kpiTitle.style.cssText = 'font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;';
+                                
+                                kpiSection.appendChild(kpiTitle);
+                                
+                                // Create containers for visualization and insights
+                                const vizContainer = document.createElement('div');
+                                vizContainer.id = `viz-${kpiName.replace(/\s+/g, '-')}`;
+                                vizContainer.className = 'visualization-container';
+                                vizContainer.style.cssText = 'margin-bottom: 15px; text-align: center;';
+                                
+                                const insightsContainer = document.createElement('div');
+                                insightsContainer.id = `insights-${kpiName.replace(/\s+/g, '-')}`;
+                                insightsContainer.className = 'insights-container';
+                                insightsContainer.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem;';
+                                
+                                kpiSection.appendChild(vizContainer);
+                                kpiSection.appendChild(insightsContainer);
+                                
+                                // Add to main container
+                                kpiContainer.appendChild(kpiSection);
+                            }
+                            
+                            // Update visualization if available
+                            if (kpiData.visualization_url) {
+                                const vizContainer = document.getElementById(`viz-${kpiName.replace(/\s+/g, '-')}`);
+                                
+                                // Check if we already have an image
+                                if (!vizContainer.querySelector('img')) {
+                                    const img = document.createElement('img');
+                                    img.src = kpiData.visualization_url;
+                                    img.alt = `Visualization for ${kpiName}`;
+                                    img.style.cssText = 'max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+                                    vizContainer.appendChild(img);
+                                }
+                            }
+                            
+                            // Update insights if available
+                            if (kpiData.insights) {
+                                const insightsContainer = document.getElementById(`insights-${kpiName.replace(/\s+/g, '-')}`);
+                                insightsContainer.innerHTML = kpiData.insights;
+                            }
+                        }
                     }
                     
                     // Check if complete or failed
