@@ -141,13 +141,13 @@ async def run_analysis(task_id: str, file_url: str, client):
             blob=blob_name
         )
         
-        # Create a temporary directory if it doesn't exist
-        os.makedirs("temp", exist_ok=True)
-        local_file_path = f"temp/{blob_name.split('/')[-1]}"
+        # # Create a temporary directory if it doesn't exist
+        # os.makedirs("temp", exist_ok=True)
+        # local_file_path = f"temp/{blob_name.split('/')[-1]}"
         
-        # Download the blob
-        with open(local_file_path, "wb") as file:
-            file.write(blob_client.download_blob().readall())
+        # # Download the blob
+        # with open(local_file_path, "wb") as file:
+        #     file.write(blob_client.download_blob().readall())
         
         # Update task status
         await tasks_collection.update_one(
@@ -171,7 +171,7 @@ async def run_analysis(task_id: str, file_url: str, client):
         from utils.html_report_generator import create_html_report
         
         # Load data
-        result, columns, prompt = await load_data(local_file_path, client)
+        result, columns, prompt = await load_data(file_url, client)
         
         # Update task status
         await tasks_collection.update_one(
@@ -283,24 +283,26 @@ async def run_analysis(task_id: str, file_url: str, client):
         # Save the master data dictionary to a json file
         os.makedirs("reports", exist_ok=True)
         data_file_path = f"reports/data_{task_id}.json"
-        with open(data_file_path, "w") as f:
-            json.dump(master_data_dictionary, f)
-        
-        # Generate HTML report
-        report_file_path = f"reports/report_{task_id}.html"
-        create_html_report(master_data_dictionary, output_filename=report_file_path)
-        
-        # Upload the report to blob storage
+        # with open(data_file_path, "w") as f:
+        #     json.dump(master_data_dictionary, f)
+        # Write master data dictionary to blob storage(directly)
+        # Save the master data dictionary to blob storage directly (no local file needed)
         container_client = blob_service_client.get_container_client("images-analysis")
-        blob_client = container_client.get_blob_client(f"report_{task_id}.html")
-        
-        with open(report_file_path, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
-        
-        # Get the report URL
-        report_url = blob_client.url
-        
-        # Update task status to completed
+
+        # Upload JSON data directly to blob storage
+        json_blob_client = container_client.get_blob_client(f"data_{task_id}.json")
+        json_blob_client.upload_blob(json.dumps(master_data_dictionary).encode('utf-8'), overwrite=True)
+        json_data_url = json_blob_client.url
+
+        # Generate HTML content in memory
+        html_content = create_html_report(master_data_dictionary)
+
+        # Upload HTML content directly to blob storage
+        html_blob_client = container_client.get_blob_client(f"report_{task_id}.html")
+        html_blob_client.upload_blob(html_content.encode('utf-8'), overwrite=True)
+        report_url = html_blob_client.url
+
+        # Update task status to completed with URLs to both files
         await tasks_collection.update_one(
             {"task_id": task_id},
             {"$set": {
@@ -308,19 +310,14 @@ async def run_analysis(task_id: str, file_url: str, client):
                 "progress": 1.0,
                 "message": "Analysis completed successfully",
                 "report_url": report_url,
-                "raw_data_url": data_file_path,  # Local path for now
+                "raw_data_url": json_data_url,  # Now this is a blob URL, not a local path
                 "updated_at": datetime.now()
             }}
         )
-        
-        # Clean up temporary file
-        os.remove(local_file_path)
-
-        # Clean up the report file
-        os.remove(report_file_path)
 
         # Clean up the master data dictionary file
-        os.remove(data_file_path)
+        if os.path.exists(data_file_path):
+            os.remove(data_file_path)   
         
         # Delete the charts folder if it exists
         if os.path.exists("charts") and os.path.isdir("charts"):

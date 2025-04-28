@@ -22,33 +22,40 @@ load_dotenv()
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-async def load_data(file_path:str,client:Request):
+async def load_data(file_path_or_url: str, client: Request):
     """
-    This function is used to load data from a CSV file based on multiple encodings.
+    This function is used to load data from either a CSV file or a blob URL.
 
     Args:
-        file_path: str
+        file_path_or_url: str - Either a local file path or a blob URL
         client: Request
 
     Returns:
         df: pd.DataFrame
         columns: list
+        prompt: str
     """
-    encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
-    
-    for encoding in encodings:
+    # Check if the input is a URL or a local path
+    if file_path_or_url.startswith('http'):
+        # It's a blob URL, so read directly from the blob
+        import requests
+        from io import BytesIO
+        
         try:
-            df = pd.read_csv(file_path, encoding=encoding)
+            # Download content from blob URL directly
+            response = requests.get(file_path_or_url)
+            response.raise_for_status()  # Raise exception for 4XX/5XX responses
+            
+            # Read content directly into pandas using BytesIO
+            file_content = BytesIO(response.content)
+            df = pd.read_csv(file_content)
             columns = df.columns.tolist()
-
+            
             if len(columns) == 0:
-                return HTTPException(status_code=500, detail="No columns found in the file,dataset unfit for analysis")
-
-            db = client['Python-Data-Analyst']
-            collection = db['logs']
-
+                return HTTPException(status_code=500, detail="No columns found in the file, dataset unfit for analysis")
+            
+            # Generate prompt with dataset information
             prompt = f"Here is the dataset description:\n"
-
             for column in columns:
                 prompt += f"Column Name: {column}\n"
                 prompt += f"Null Values: {df[column].isnull().sum()}\n"
@@ -56,28 +63,72 @@ async def load_data(file_path:str,client:Request):
                 unique_values = df[column].unique().tolist()
                 num_to_show = min(20, len(unique_values))
                 prompt += f"Top {num_to_show} Unique Values: {unique_values[:num_to_show]}\n"
-                prompt += f"Number of Unique Values: {len(df[column].unique())}\n"  
-
-            dict={
-                "timestamp":datetime.now(),
-                "file_path":file_path,
-                "encoding":encoding,
-                "columns":columns,
-                "message":"Data loaded successfully(load_data)",
-                "prompt":prompt
-           
-            }
-
-            await collection.insert_one(dict) 
-            return df,columns,prompt
-        except UnicodeDecodeError:
-            continue
-        except Exception as e:
-            print(f"Error loading data: {e}")
-            return HTTPException(status_code=500, detail=f"Error loading data: {e}")
+                prompt += f"Number of Unique Values: {len(df[column].unique())}\n"
             
-    print(f"Could not read file with any of the attempted encodings")
-    return HTTPException(status_code=500, detail="Could not read file with any of the attempted encodings")
+            # Log to database
+            db = client['Python-Data-Analyst']
+            collection = db['logs']
+            dict = {
+                "timestamp": datetime.now(),
+                "file_path_or_url": file_path_or_url,
+                "columns": columns,
+                "message": "Data loaded successfully from blob URL",
+                "prompt": prompt
+            }
+            await collection.insert_one(dict)
+            
+            return df, columns, prompt
+            
+        except Exception as e:
+            print(f"Error loading data from blob URL: {e}")
+            return HTTPException(status_code=500, detail=f"Error loading data from blob URL: {e}")
+    
+    else:
+        # It's a local file path, use the original method
+        encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
+        
+        for encoding in encodings:
+            try:
+                df = pd.read_csv(file_path_or_url, encoding=encoding)
+                columns = df.columns.tolist()
+
+                if len(columns) == 0:
+                    return HTTPException(status_code=500, detail="No columns found in the file, dataset unfit for analysis")
+
+                db = client['Python-Data-Analyst']
+                collection = db['logs']
+
+                prompt = f"Here is the dataset description:\n"
+
+                for column in columns:
+                    prompt += f"Column Name: {column}\n"
+                    prompt += f"Null Values: {df[column].isnull().sum()}\n"
+                    prompt += f"Data Type: {df[column].dtype}\n"
+                    unique_values = df[column].unique().tolist()
+                    num_to_show = min(20, len(unique_values))
+                    prompt += f"Top {num_to_show} Unique Values: {unique_values[:num_to_show]}\n"
+                    prompt += f"Number of Unique Values: {len(df[column].unique())}\n"  
+
+                dict = {
+                    "timestamp": datetime.now(),
+                    "file_path": file_path_or_url,
+                    "encoding": encoding,
+                    "columns": columns,
+                    "message": "Data loaded successfully from local file",
+                    "prompt": prompt
+                }
+
+                await collection.insert_one(dict) 
+                return df, columns, prompt
+                
+            except UnicodeDecodeError:
+                continue
+            except Exception as e:
+                print(f"Error loading data from local file: {e}")
+                return HTTPException(status_code=500, detail=f"Error loading data from local file: {e}")
+        
+        print(f"Could not read file with any of the attempted encodings")
+        return HTTPException(status_code=500, detail="Could not read file with any of the attempted encodings")
 
 async def get_kpi(prompt:str,client:Request)->list:
     """

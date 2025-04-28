@@ -501,12 +501,12 @@ def create_html_report(master_data_dict: Dict[str, Any],
     </html>
     """
     
-    # Write the HTML file
-    with open(output_filename, 'w', encoding='utf-8') as f:
-        f.write(html_content)
+    # # Write the HTML file
+    # with open(output_filename, 'w', encoding='utf-8') as f:
+    #     f.write(html_content)
     
-    print(f"HTML report created successfully: {output_filename}")
-    return output_filename
+    # print(f"HTML report created successfully: {output_filename}")
+    return html_content
 
 
 def generate_html_report(json_path="master_data_dictionary.json", output_filename="data_analysis_report.html"):
