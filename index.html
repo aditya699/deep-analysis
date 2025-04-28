@@ -773,7 +773,7 @@
             
             try {
                 // Submit file for analysis
-                const response = await fetch('http://127.0.0.1:8000/analyze/', {
+                const response = await fetch('https://deepanalysis.azurewebsites.net/analyze/', {
                     method: 'POST',
                     body: formData
                 });
@@ -840,7 +840,7 @@
             
             while (!complete) {
                 try {
-                    const response = await fetch(`http://127.0.0.1:8000/task/${taskId}`);
+                    const response = await fetch(`https://deepanalysis.azurewebsites.net/task/${taskId}`);
                     
                     if (!response.ok) {
                         throw new Error('Error checking task status');

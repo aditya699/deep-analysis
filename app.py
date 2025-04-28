@@ -5,11 +5,13 @@ NOTE:
 1. This is a little longer task, so for v1 is still fast but later it can more deep,
    so we need a basic implementation of background tasks so that api call doesn't timeout.
 '''
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from utils.file_processor import process_uploaded_file, get_task_status_from_db
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from database.get_client import get_client
 import uvicorn
 
 # Initialize FastAPI app
@@ -47,6 +49,30 @@ async def analyze_data(
     Upload a CSV file and start the analysis process in the background
     """
     return await process_uploaded_file(file, background_tasks)
+@app.on_event("startup")
+async def startup_event():
+    # Get database connection
+    client = await get_client()
+    db = client["Python-Data-Analyst"]
+    tasks_collection = db["analysis_tasks"]
+    
+    # Find all tasks that were left in "processing" state
+    interrupted_tasks = await tasks_collection.find(
+        {"status": "processing"}
+    ).to_list(length=None)
+    
+    # Update their status to indicate server restart
+    for task in interrupted_tasks:
+        await tasks_collection.update_one(
+            {"task_id": task["task_id"]},
+            {"$set": {
+                "status": "failed",
+                "message": "Analysis was interrupted due to server resource constraints. Please try again later in 5 minutes.",
+                "updated_at": datetime.now()
+            }}
+        )
+    
+    print(f"Updated {len(interrupted_tasks)} interrupted tasks due to server restart")
 
 @app.get("/task/{task_id}")
 async def get_task_status(task_id: str):
