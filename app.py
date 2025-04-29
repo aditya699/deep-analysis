@@ -76,15 +76,17 @@ async def startup_event():
     print(f"Updated {len(interrupted_tasks)} interrupted tasks due to server restart")
 
 @app.get("/task/{task_id}")
-async def get_task_status(task_id: str):
+async def get_task_status_endpoint(task_id: str):
     """
     Get the status of an analysis task from Redis
     """
+    # print("I am being called")
     # Import the Redis function
     from utils.redis_tasks import get_task_status
     
     # Try to get task status from Redis first
     redis_task = await get_task_status(task_id)
+    # print(f"Redis task: {redis_task}")
     
     if redis_task:
         return redis_task

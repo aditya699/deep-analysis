@@ -430,7 +430,7 @@ async def get_task_status_from_db(task_id: str):
 
 async def update_redis_task(task_id, status, progress, message, additional_data=None):
     """
-    Update task status in Redis
+    Update task status in Redis with proper handling of nested data
     """
     try:
         from utils.redis_tasks import redis_client
@@ -440,7 +440,7 @@ async def update_redis_task(task_id, status, progress, message, additional_data=
         # Get current task data
         task_data_str = await redis_client.get(f"task:{task_id}")
         if not task_data_str:
-            print(f"Task {task_id} not found in Redis")
+            # print(f"Task {task_id} not found in Redis")
             return False
             
         task_data = json.loads(task_data_str)
@@ -451,9 +451,30 @@ async def update_redis_task(task_id, status, progress, message, additional_data=
         task_data["message"] = message
         task_data["updated_at"] = datetime.now().isoformat()
         
-        # Add any additional data
+        # Add any additional data - with proper handling of dot notation
         if additional_data:
-            task_data.update(additional_data)
+            for key, value in additional_data.items():
+                if key.startswith('partial_results.'):
+                    # Split the key by dots, handling up to the first two segments special
+                    parts = key.split('.', 2)
+                    if len(parts) >= 3:
+                        # We have partial_results.KPI_NAME.FIELD
+                        kpi_name = parts[1]
+                        property_name = parts[2]
+                        
+                        # Make sure partial_results exists
+                        if "partial_results" not in task_data:
+                            task_data["partial_results"] = {}
+                            
+                        # Make sure the KPI object exists
+                        if kpi_name not in task_data["partial_results"]:
+                            task_data["partial_results"][kpi_name] = {}
+                            
+                        # Add the property to the KPI
+                        task_data["partial_results"][kpi_name][property_name] = value
+                else:
+                    # Regular fields just get added directly
+                    task_data[key] = value
         
         # Save back to Redis
         await redis_client.set(f"task:{task_id}", json.dumps(task_data))
