@@ -13,3 +13,4 @@ reportlab
 pytest 
 pytest-asyncio
 azure-storage-blob
+redis[hiredis] #async driver for redis

@@ -68,6 +68,7 @@ async def startup_event():
             {"$set": {
                 "status": "failed",
                 "message": "Analysis was interrupted due to server resource constraints. Please try again later in 5 minutes.",
+                "message": "Analysis was interrupted due to server resource constraints. Please try again later in 5 minutes.",
                 "updated_at": datetime.now()
             }}
         )
@@ -77,9 +78,22 @@ async def startup_event():
 @app.get("/task/{task_id}")
 async def get_task_status(task_id: str):
     """
-    Get the status of an analysis task
+    Get the status of an analysis task from Redis
     """
-    return await get_task_status_from_db(task_id)
+    # Import the Redis function
+    from utils.redis_tasks import get_task_status
+    
+    # Try to get task status from Redis first
+    redis_task = await get_task_status(task_id)
+    
+    if redis_task:
+        return redis_task
+    
+    # If not found in Redis, fall back to checking MongoDB
+    # This is useful for tasks created before we implemented Redis
+    mongo_task = await get_task_status_from_db(task_id)
+    
+    return mongo_task
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

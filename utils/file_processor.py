@@ -78,6 +78,10 @@ async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTa
         # Insert task document
         await tasks_collection.insert_one(task_document)
         
+        # we need to add the task to the redis queue
+        from utils.redis_tasks import enqueue_task
+        await enqueue_task(task_id,blob_client.url)
+
         # Add the analysis task to background tasks
         if background_tasks is not None:
             background_tasks.add_task(
@@ -89,7 +93,7 @@ async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTa
         
         # Return task information
         return {
-            "message": f"File {file.filename} uploaded successfully. Analysis started.",
+            "message": f"File {file.filename} uploaded successfully. Analysis queued.",
             "task_id": task_id,
             "status": "pending",
             "file_url": blob_client.url
@@ -97,6 +101,7 @@ async def process_uploaded_file(file: UploadFile, background_tasks: BackgroundTa
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        
 
 async def run_analysis(task_id: str, file_url: str, client):
     """
