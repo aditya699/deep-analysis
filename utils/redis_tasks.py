@@ -68,7 +68,7 @@ async def get_task_status(task_id: str):
     Returns:
         dict: Task data or None if not found
     """
-    print("I am being called")
+    # print("I am being called")
     try:
         task_data = await redis_client.get(f"task:{task_id}")
         print(f"Task data: {task_data}")

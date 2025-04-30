@@ -808,6 +808,8 @@
             let complete = false;
             let currentStep = 'upload';
             let previousProgress = 0;
+            let previousPartialResults = null;
+            let processedKPIs = new Set(); // Track processed KPIs to avoid duplicates
             
             const steps = {
                 'upload': { element: stepUpload, threshold: 0 },
@@ -838,6 +840,67 @@
                 }
             };
             
+            const normalizeKPIName = (kpiName) => {
+                return kpiName.toLowerCase();
+            };
+
+            const createOrUpdateKPISection = (kpiName, kpiData, kpiContainer) => {
+                const normalizedKPIName = normalizeKPIName(kpiName);
+                const sectionId = `kpi-${normalizedKPIName.replace(/\s+/g, '-')}`;
+                
+                // Check if we already have a section for this KPI
+                let kpiSection = document.getElementById(sectionId);
+                
+                // If not, create one
+                if (!kpiSection) {
+                    kpiSection = document.createElement('div');
+                    kpiSection.id = sectionId;
+                    kpiSection.className = 'kpi-result-card';
+                    kpiSection.style.cssText = 'background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; animation: fadeIn 0.5s ease;';
+                    
+                    // Add KPI title
+                    const kpiTitle = document.createElement('h4');
+                    kpiTitle.textContent = kpiName; // Use original name for display
+                    kpiTitle.style.cssText = 'font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;';
+                    kpiSection.appendChild(kpiTitle);
+                    
+                    // Create containers for visualization and insights
+                    const vizContainer = document.createElement('div');
+                    vizContainer.id = `viz-${normalizedKPIName.replace(/\s+/g, '-')}`;
+                    vizContainer.className = 'visualization-container';
+                    vizContainer.style.cssText = 'margin-bottom: 15px; text-align: center;';
+                    
+                    const insightsContainer = document.createElement('div');
+                    insightsContainer.id = `insights-${normalizedKPIName.replace(/\s+/g, '-')}`;
+                    insightsContainer.className = 'insights-container';
+                    insightsContainer.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem;';
+                    
+                    kpiSection.appendChild(vizContainer);
+                    kpiSection.appendChild(insightsContainer);
+                    
+                    // Add to main container in the correct order
+                    kpiContainer.appendChild(kpiSection);
+                }
+                
+                // Update visualization if available
+                if (kpiData.visualization_url) {
+                    const vizContainer = document.getElementById(`viz-${normalizedKPIName.replace(/\s+/g, '-')}`);
+                    if (!vizContainer.querySelector('img')) {
+                        const img = document.createElement('img');
+                        img.src = kpiData.visualization_url;
+                        img.alt = `Visualization for ${kpiName}`;
+                        img.style.cssText = 'max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+                        vizContainer.appendChild(img);
+                    }
+                }
+                
+                // Update insights if available
+                if (kpiData.insights) {
+                    const insightsContainer = document.getElementById(`insights-${normalizedKPIName.replace(/\s+/g, '-')}`);
+                    insightsContainer.innerHTML = kpiData.insights;
+                }
+            };
+            
             while (!complete) {
                 try {
                     const response = await fetch(`http://localhost:8000/task/${taskId}`);
@@ -864,70 +927,34 @@
                     }
                     
                     // Check for partial results
-                    if (data.partial_results) {
+                    if (data.partial_results && JSON.stringify(data.partial_results) !== JSON.stringify(previousPartialResults)) {
                         // Show partial results container
                         document.getElementById('partialResults').style.display = 'block';
                         
                         // Get container for KPI results
                         const kpiContainer = document.getElementById('kpiResultsContainer');
                         
-                        // Process each KPI with results
-                        for (const [kpiName, kpiData] of Object.entries(data.partial_results)) {
-                            // Check if we already have a section for this KPI
-                            let kpiSection = document.getElementById(`kpi-${kpiName.replace(/\s+/g, '-')}`);
-                            
-                            // If not, create one
-                            if (!kpiSection) {
-                                kpiSection = document.createElement('div');
-                                kpiSection.id = `kpi-${kpiName.replace(/\s+/g, '-')}`;
-                                kpiSection.className = 'kpi-result-card';
-                                kpiSection.style.cssText = 'background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; animation: fadeIn 0.5s ease;';
+                        // Clear any existing KPI sections if this is the first update
+                        if (!previousPartialResults) {
+                            kpiContainer.innerHTML = '';
+                            processedKPIs.clear();
+                        }
+                        
+                        // Process KPIs in the order they were identified
+                        if (data.identified_kpis) {
+                            for (const kpiName of data.identified_kpis) {
+                                const normalizedKPIName = normalizeKPIName(kpiName);
+                                const kpiData = data.partial_results[normalizedKPIName];
                                 
-                                // Add KPI title
-                                const kpiTitle = document.createElement('h4');
-                                kpiTitle.textContent = kpiName;
-                                kpiTitle.style.cssText = 'font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;';
-                                
-                                kpiSection.appendChild(kpiTitle);
-                                
-                                // Create containers for visualization and insights
-                                const vizContainer = document.createElement('div');
-                                vizContainer.id = `viz-${kpiName.replace(/\s+/g, '-')}`;
-                                vizContainer.className = 'visualization-container';
-                                vizContainer.style.cssText = 'margin-bottom: 15px; text-align: center;';
-                                
-                                const insightsContainer = document.createElement('div');
-                                insightsContainer.id = `insights-${kpiName.replace(/\s+/g, '-')}`;
-                                insightsContainer.className = 'insights-container';
-                                insightsContainer.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem;';
-                                
-                                kpiSection.appendChild(vizContainer);
-                                kpiSection.appendChild(insightsContainer);
-                                
-                                // Add to main container
-                                kpiContainer.appendChild(kpiSection);
-                            }
-                            
-                            // Update visualization if available
-                            if (kpiData.visualization_url) {
-                                const vizContainer = document.getElementById(`viz-${kpiName.replace(/\s+/g, '-')}`);
-                                
-                                // Check if we already have an image
-                                if (!vizContainer.querySelector('img')) {
-                                    const img = document.createElement('img');
-                                    img.src = kpiData.visualization_url;
-                                    img.alt = `Visualization for ${kpiName}`;
-                                    img.style.cssText = 'max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
-                                    vizContainer.appendChild(img);
+                                if (kpiData && (kpiData.visualization_url || kpiData.insights)) {
+                                    createOrUpdateKPISection(kpiName, kpiData, kpiContainer);
+                                    processedKPIs.add(normalizedKPIName);
                                 }
                             }
-                            
-                            // Update insights if available
-                            if (kpiData.insights) {
-                                const insightsContainer = document.getElementById(`insights-${kpiName.replace(/\s+/g, '-')}`);
-                                insightsContainer.innerHTML = kpiData.insights;
-                            }
                         }
+                        
+                        // Store current partial results for comparison
+                        previousPartialResults = data.partial_results;
                     }
                     
                     // Check if complete or failed
@@ -950,7 +977,13 @@
                     } else if (data.status === 'failed') {
                         complete = true;
                         progressContainer.style.display = 'none';
-                        showError(`Analysis failed: ${data.message}`);
+                        
+                        // Enhanced error display
+                        let errorMessage = data.message;
+                        if (data.error_detail) {
+                            errorMessage += `\n\nDetails: ${data.error_detail}`;
+                        }
+                        showError(errorMessage);
                         
                         // Reset form
                         uploadForm.style.display = 'block';

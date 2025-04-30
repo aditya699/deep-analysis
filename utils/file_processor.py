@@ -127,11 +127,16 @@ async def run_analysis(task_id: str, file_url: str, client):
                 "updated_at": datetime.now()
             }}
         )
-        # Add Redis update
-        await update_redis_task(task_id, "processing", 0.1, "Starting analysis...")
+        # Add Redis update with proper initialization
+        await update_redis_task(
+            task_id, 
+            "processing", 
+            0.1, 
+            "Starting analysis...",
+            {"partial_results": {}}  # Initialize empty partial_results
+        )
         
         # Download the file from blob storage
-        # We need to download it since our analysis code expects a local file
         connection_string = os.getenv("BLOB_STORAGE_ACCOUNT_KEY")
         blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         
@@ -197,13 +202,16 @@ async def run_analysis(task_id: str, file_url: str, client):
                 "updated_at": datetime.now()
             }}
         )
-        # Add Redis update with KPIs
+        # Add Redis update with KPIs and initialize partial_results structure
         await update_redis_task(
             task_id, 
             "processing", 
             0.3, 
             "KPIs identified",
-            {"identified_kpis": kpi_names}
+            {
+                "identified_kpis": kpi_names,
+                "partial_results": {kpi: {} for kpi in kpi_names}  # Initialize structure for each KPI
+            }
         )
         
         # Initialize master data dictionary
@@ -225,7 +233,7 @@ async def run_analysis(task_id: str, file_url: str, client):
                     "updated_at": datetime.now()
                 }}
             )
-            # Add Redis update
+            # Add Redis update with current KPI
             await update_redis_task(
                 task_id, 
                 "processing", 
@@ -249,6 +257,7 @@ async def run_analysis(task_id: str, file_url: str, client):
             
             # Update task with visualization URL
             if visualization["status"] == "success" and "visualization_url" in visualization:
+                # MongoDB update
                 await tasks_collection.update_one(
                     {"task_id": task_id},
                     {"$set": {
@@ -258,7 +267,7 @@ async def run_analysis(task_id: str, file_url: str, client):
                         f"partial_results.{kpi_name}.visualization_url": visualization["visualization_url"]
                     }}
                 )
-                # Add Redis update
+                # Redis update with properly structured data
                 await update_redis_task(
                     task_id, 
                     "processing", 
@@ -282,7 +291,7 @@ async def run_analysis(task_id: str, file_url: str, client):
                     f"partial_results.{kpi_name}.insights": insights
                 }}
             )
-            # Add Redis update
+            # Add Redis update with insights
             await update_redis_task(
                 task_id, 
                 "processing", 
@@ -316,7 +325,7 @@ async def run_analysis(task_id: str, file_url: str, client):
                 "summary": summary
             }}
         )
-        # Add Redis update
+        # Add Redis update with summary
         await update_redis_task(
             task_id, 
             "processing", 
@@ -355,7 +364,7 @@ async def run_analysis(task_id: str, file_url: str, client):
                 "updated_at": datetime.now()
             }}
         )
-        # Add Redis update with URLs
+        # Add Redis update with URLs and final status
         await update_redis_task(
             task_id, 
             "completed", 
@@ -363,7 +372,9 @@ async def run_analysis(task_id: str, file_url: str, client):
             "Analysis completed successfully",
             {
                 "report_url": report_url,
-                "raw_data_url": json_data_url
+                "raw_data_url": json_data_url,
+                "status": "completed",
+                "progress": 1.0
             }
         )
 
@@ -381,7 +392,7 @@ async def run_analysis(task_id: str, file_url: str, client):
         error_detail = str(e)
         error_traceback = traceback.format_exc()
         
-        # Update task status to failed
+        # Update task status to failed in MongoDB
         await tasks_collection.update_one(
             {"task_id": task_id},
             {"$set": {
@@ -400,7 +411,9 @@ async def run_analysis(task_id: str, file_url: str, client):
             f"Analysis failed: {error_detail}",
             {
                 "error_detail": error_detail,
-                "error_traceback": error_traceback
+                "error_traceback": error_traceback,
+                "status": "failed",
+                "progress": 0
             }
         )
 
@@ -437,48 +450,132 @@ async def update_redis_task(task_id, status, progress, message, additional_data=
         import json
         from datetime import datetime
         
-        # Get current task data
+        # Get current task data with proper error handling
         task_data_str = await redis_client.get(f"task:{task_id}")
         if not task_data_str:
-            # print(f"Task {task_id} not found in Redis")
-            return False
+            task_data = {
+                "task_id": task_id,
+                "status": status,
+                "progress": progress,
+                "message": message,
+                "updated_at": datetime.now().isoformat(),
+                "partial_results": {}
+            }
+        else:
+            try:
+                task_data = json.loads(task_data_str)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding Redis data for task {task_id}: {e}")
+                task_data = {
+                    "task_id": task_id,
+                    "status": status,
+                    "progress": progress,
+                    "message": message,
+                    "updated_at": datetime.now().isoformat(),
+                    "partial_results": {}
+                }
             
-        task_data = json.loads(task_data_str)
+            # Update basic fields
+            task_data["status"] = status
+            task_data["progress"] = progress
+            task_data["message"] = message
+            task_data["updated_at"] = datetime.now().isoformat()
+            
+            # Ensure partial_results exists and is a dictionary
+            if "partial_results" not in task_data or not isinstance(task_data["partial_results"], dict):
+                task_data["partial_results"] = {}
         
-        # Update basic fields
-        task_data["status"] = status
-        task_data["progress"] = progress
-        task_data["message"] = message
-        task_data["updated_at"] = datetime.now().isoformat()
-        
-        # Add any additional data - with proper handling of dot notation
+        # Handle additional data updates
         if additional_data:
+            # Track valid KPIs and their data
+            valid_kpis = {}
+            
             for key, value in additional_data.items():
                 if key.startswith('partial_results.'):
-                    # Split the key by dots, handling up to the first two segments special
+                    # Handle nested partial_results updates
                     parts = key.split('.', 2)
                     if len(parts) >= 3:
-                        # We have partial_results.KPI_NAME.FIELD
                         kpi_name = parts[1]
                         property_name = parts[2]
                         
-                        # Make sure partial_results exists
-                        if "partial_results" not in task_data:
-                            task_data["partial_results"] = {}
-                            
-                        # Make sure the KPI object exists
+                        # Normalize KPI name to lowercase for consistency
+                        normalized_kpi = kpi_name.lower()
+                        
+                        # Initialize KPI structure if needed
+                        if normalized_kpi not in valid_kpis:
+                            valid_kpis[normalized_kpi] = {}
+                        
+                        # Update the specific property
+                        valid_kpis[normalized_kpi][property_name] = value
+                        
+                elif key == "identified_kpis":
+                    # Special handling for KPI initialization
+                    # Normalize all KPI names to lowercase and store original case mapping
+                    normalized_kpis = []
+                    kpi_case_map = {}
+                    for kpi in value:
+                        normalized = kpi.lower()
+                        normalized_kpis.append(normalized)
+                        kpi_case_map[normalized] = kpi
+                    
+                    # Store both normalized KPIs and their original case
+                    task_data["identified_kpis"] = normalized_kpis
+                    task_data["kpi_case_map"] = kpi_case_map
+                    
+                    # Initialize or maintain partial_results entries for each KPI
+                    for kpi_name in normalized_kpis:
                         if kpi_name not in task_data["partial_results"]:
                             task_data["partial_results"][kpi_name] = {}
+                        else:
+                            # Preserve existing data for this KPI
+                            valid_kpis[kpi_name] = task_data["partial_results"][kpi_name]
                             
-                        # Add the property to the KPI
-                        task_data["partial_results"][kpi_name][property_name] = value
+                elif key == "current_kpi":
+                    # Normalize current KPI name
+                    task_data[key] = value.lower()
                 else:
-                    # Regular fields just get added directly
+                    # Handle direct field updates
                     task_data[key] = value
+            
+            # Update partial_results with valid KPIs only
+            for kpi, data in valid_kpis.items():
+                # Only store KPIs that have actual data (visualization_url or insights)
+                if data and (data.get('visualization_url') or data.get('insights')):
+                    # Ensure both visualization_url and insights exist in the data
+                    if 'visualization_url' not in data:
+                        data['visualization_url'] = None
+                    if 'insights' not in data:
+                        data['insights'] = None
+                    task_data["partial_results"][kpi] = data
+            
+            # Sort partial_results to maintain consistent order based on identified_kpis
+            if "identified_kpis" in task_data:
+                sorted_results = {}
+                for kpi in task_data["identified_kpis"]:
+                    if kpi in task_data["partial_results"]:
+                        sorted_results[kpi] = task_data["partial_results"][kpi]
+                task_data["partial_results"] = sorted_results
         
-        # Save back to Redis
-        await redis_client.set(f"task:{task_id}", json.dumps(task_data))
+        # Debug: Print what we're about to save
+        print(f"Saving to Redis - Task ID: {task_id}")
+        print(f"Status: {status}, Progress: {progress}")
+        if "partial_results" in task_data:
+            print(f"Partial results keys: {list(task_data['partial_results'].keys())}")
+            # Debug partial results content
+            for kpi, data in task_data["partial_results"].items():
+                print(f"KPI: {kpi}")
+                print(f"Has visualization: {'visualization_url' in data}")
+                print(f"Has insights: {'insights' in data}")
+        
+        # Serialize to JSON and save back to Redis
+        json_data = json.dumps(task_data)
+        redis_result = await redis_client.set(f"task:{task_id}", json_data)
+        print(f"Redis set result: {redis_result}")
+        
         return True
     except Exception as e:
         print(f"Error updating Redis task: {e}")
+        # Log detailed error info including traceback
+        import traceback
+        traceback.print_exc()
         return False
