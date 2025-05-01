@@ -83,7 +83,7 @@ python
 INSERT THE CODE HERE
 ```
 
-NOTE: Generate only Python code, without any additional text or explanations. Always render the full code and have all libraries imported.
+NOTE: Generate only Python code, without any additional text or explanations. Always render the full code and have all libraries imported.Only generate code for the given KPI never generate code for other KPIs and do not create any other KPIs.
 """
 
 BUSINESS_ANALYST = """

@@ -789,6 +789,10 @@
                 uploadForm.style.display = 'none';
                 progressContainer.style.display = 'block';
                 
+                // Clear any previous KPI results
+                document.getElementById('kpiResultsContainer').innerHTML = '';
+                document.getElementById('partialResults').style.display = 'none';
+                
                 // Mark upload step as completed
                 stepUpload.classList.add('completed');
                 
@@ -808,9 +812,8 @@
             let complete = false;
             let currentStep = 'upload';
             let previousProgress = 0;
-            let previousPartialResults = null;
-            let processedKPIs = new Set(); // Track processed KPIs to avoid duplicates
             
+            // Steps for UI updates
             const steps = {
                 'upload': { element: stepUpload, threshold: 0 },
                 'data_load': { element: stepDataLoad, threshold: 0.1 },
@@ -819,173 +822,137 @@
                 'report': { element: stepReport, threshold: 0.9 }
             };
             
+            // Function to update steps based on progress
             const updateSteps = (progress) => {
-                // Determine current step based on progress
-                let newStep = currentStep;
+                // This approach highlights the current active step
+                let foundCurrentStep = false;
                 
-                if (progress >= steps.report.threshold) newStep = 'report';
-                else if (progress >= steps.visualization.threshold) newStep = 'visualization';
-                else if (progress >= steps.analysis.threshold) newStep = 'analysis';
-                else if (progress >= steps.data_load.threshold) newStep = 'data_load';
-                
-                // If step changed, update UI
-                if (newStep !== currentStep) {
-                    // Mark previous step as completed
-                    steps[currentStep].element.classList.add('completed');
-                    
-                    // Set new step as active
-                    steps[newStep].element.classList.add('active');
-                    
-                    currentStep = newStep;
+                for (const [stepName, stepData] of Object.entries(steps)) {
+                    if (progress >= stepData.threshold && !foundCurrentStep) {
+                        // This is the current active step
+                        stepData.element.classList.add('active');
+                        if (stepName !== currentStep) {
+                            console.log(`Changing current step from ${currentStep} to ${stepName}`);
+                            // If we're changing steps, mark previous as completed
+                            if (steps[currentStep]) {
+                                steps[currentStep].element.classList.add('completed');
+                            }
+                            currentStep = stepName;
+                        }
+                        foundCurrentStep = true;
+                    } else if (progress >= stepData.threshold) {
+                        // This step is complete
+                        stepData.element.classList.add('completed');
+                        stepData.element.classList.remove('active');
+                    } else {
+                        // This step is not started
+                        stepData.element.classList.remove('active');
+                        stepData.element.classList.remove('completed');
+                    }
                 }
             };
             
-            const normalizeKPIName = (kpiName) => {
-                return kpiName.toLowerCase();
-            };
-
-            const createOrUpdateKPISection = (kpiName, kpiData, kpiContainer) => {
-                const normalizedKPIName = normalizeKPIName(kpiName);
-                const sectionId = `kpi-${normalizedKPIName.replace(/\s+/g, '-')}`;
+            function createOrUpdateKPISection(kpiName, kpiData, container) {
+                // Create unique ID from KPI name
+                const kpiId = `kpi-${kpiName.replace(/\s+/g, '-').toLowerCase()}`;
                 
-                // Check if we already have a section for this KPI
-                let kpiSection = document.getElementById(sectionId);
-                
-                // If not, create one
+                // Create or get KPI section
+                let kpiSection = document.getElementById(kpiId);
                 if (!kpiSection) {
                     kpiSection = document.createElement('div');
-                    kpiSection.id = sectionId;
-                    kpiSection.className = 'kpi-result-card';
+                    kpiSection.id = kpiId;
+                    kpiSection.className = 'kpi-section';
                     kpiSection.style.cssText = 'background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; animation: fadeIn 0.5s ease;';
-                    
-                    // Add KPI title
-                    const kpiTitle = document.createElement('h4');
-                    kpiTitle.textContent = kpiName; // Use original name for display
-                    kpiTitle.style.cssText = 'font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;';
-                    kpiSection.appendChild(kpiTitle);
-                    
-                    // Create containers for visualization and insights
-                    const vizContainer = document.createElement('div');
-                    vizContainer.id = `viz-${normalizedKPIName.replace(/\s+/g, '-')}`;
-                    vizContainer.className = 'visualization-container';
-                    vizContainer.style.cssText = 'margin-bottom: 15px; text-align: center;';
-                    
-                    const insightsContainer = document.createElement('div');
-                    insightsContainer.id = `insights-${normalizedKPIName.replace(/\s+/g, '-')}`;
-                    insightsContainer.className = 'insights-container';
-                    insightsContainer.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem;';
-                    
-                    kpiSection.appendChild(vizContainer);
-                    kpiSection.appendChild(insightsContainer);
-                    
-                    // Add to main container in the correct order
-                    kpiContainer.appendChild(kpiSection);
+                    container.appendChild(kpiSection);
                 }
                 
-                // Update visualization if available
+                // Create KPI content
+                let content = `
+                    <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 15px; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px;">${kpiName}</h3>
+                `;
+                
+                // Add visualization if available
                 if (kpiData.visualization_url) {
-                    const vizContainer = document.getElementById(`viz-${normalizedKPIName.replace(/\s+/g, '-')}`);
-                    if (!vizContainer.querySelector('img')) {
-                        const img = document.createElement('img');
-                        img.src = kpiData.visualization_url;
-                        img.alt = `Visualization for ${kpiName}`;
-                        img.style.cssText = 'max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
-                        vizContainer.appendChild(img);
-                    }
+                    content += `
+                        <div class="visualization" style="text-align: center; margin-bottom: 15px;">
+                            <img src="${kpiData.visualization_url}" alt="${kpiName} visualization" style="max-width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        </div>
+                    `;
                 }
                 
-                // Update insights if available
+                // Add insights if available
                 if (kpiData.insights) {
-                    const insightsContainer = document.getElementById(`insights-${normalizedKPIName.replace(/\s+/g, '-')}`);
-                    insightsContainer.innerHTML = kpiData.insights;
+                    content += `
+                        <div class="insights" style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 0.95rem;">
+                            ${kpiData.insights}
+                        </div>
+                    `;
                 }
-            };
+                
+                // Update KPI section content
+                kpiSection.innerHTML = content;
+            }
             
             while (!complete) {
                 try {
+                    console.log(`Polling task status for task ${taskId}...`);
                     const response = await fetch(`http://localhost:8000/task/${taskId}`);
                     
                     if (!response.ok) {
-                        throw new Error('Error checking task status');
+                        throw new Error(`Error checking task status: ${response.statusText}`);
                     }
                     
                     const data = await response.json();
+                    console.log("Received task data:", data);
                     
                     // Update progress
-                    const progress = data.progress;
+                    const progress = data.progress || 0;
                     const progressPercentValue = Math.round(progress * 100);
                     
-                    // Only update if progress has increased
-                    if (progress > previousProgress) {
-                        progressBar.style.width = `${progressPercentValue}%`;
-                        progressPercentage.textContent = `${progressPercentValue}%`;
-                        progressMessage.textContent = data.message;
-                        previousProgress = progress;
-                        
-                        // Update steps
-                        updateSteps(progress);
-                    }
+                    // Always update UI to ensure we have the latest status
+                    progressBar.style.width = `${progressPercentValue}%`;
+                    progressPercentage.textContent = `${progressPercentValue}%`;
+                    progressMessage.textContent = data.message || '';
                     
-                    // Check for partial results
-                    if (data.partial_results && JSON.stringify(data.partial_results) !== JSON.stringify(previousPartialResults)) {
+                    // Update steps
+                    updateSteps(progress);
+                    
+                    // Handle partial results from MongoDB structure
+                    if (data.partial_results) {
+                        console.log("Partial results:", data.partial_results);
                         // Show partial results container
                         document.getElementById('partialResults').style.display = 'block';
                         
                         // Get container for KPI results
                         const kpiContainer = document.getElementById('kpiResultsContainer');
                         
-                        // Clear any existing KPI sections if this is the first update
-                        if (!previousPartialResults) {
-                            kpiContainer.innerHTML = '';
-                            processedKPIs.clear();
+                        // Process KPIs from MongoDB structure
+                        for (const [kpiName, kpiData] of Object.entries(data.partial_results)) {
+                            console.log(`Processing KPI: ${kpiName}`, kpiData);
+                            // Display each KPI data
+                            createOrUpdateKPISection(kpiName, kpiData, kpiContainer);
                         }
-                        
-                        // Process KPIs in the order they were identified
-                        if (data.identified_kpis) {
-                            for (const kpiName of data.identified_kpis) {
-                                const normalizedKPIName = normalizeKPIName(kpiName);
-                                const kpiData = data.partial_results[normalizedKPIName];
-                                
-                                if (kpiData && (kpiData.visualization_url || kpiData.insights)) {
-                                    createOrUpdateKPISection(kpiName, kpiData, kpiContainer);
-                                    processedKPIs.add(normalizedKPIName);
-                                }
-                            }
-                        }
-                        
-                        // Store current partial results for comparison
-                        previousPartialResults = data.partial_results;
                     }
                     
-                    // Check if complete or failed
+                    // Check status
                     if (data.status === 'completed') {
+                        console.log("Task completed!");
                         complete = true;
                         
                         // Mark all steps as completed
-                        Object.values(steps).forEach(step => {
-                            step.element.classList.add('completed');
-                            step.element.classList.add('active');
-                        });
+                        for (const stepData of Object.values(steps)) {
+                            stepData.element.classList.add('completed');
+                        }
                         
-                        // Show result container
+                        // Show completed UI
                         progressContainer.style.display = 'none';
                         resultContainer.style.display = 'block';
-                        
-                        // Set report URL
                         viewReportBtn.href = data.report_url;
-                        
                     } else if (data.status === 'failed') {
+                        console.log("Task failed:", data.message);
                         complete = true;
                         progressContainer.style.display = 'none';
-                        
-                        // Enhanced error display
-                        let errorMessage = data.message;
-                        if (data.error_detail) {
-                            errorMessage += `\n\nDetails: ${data.error_detail}`;
-                        }
-                        showError(errorMessage);
-                        
-                        // Reset form
+                        showError(data.message || 'Analysis failed');
                         uploadForm.style.display = 'block';
                         analyzeButton.disabled = false;
                         analyzeButton.innerHTML = '<i class="fas fa-chart-bar"></i> Analyze Data';
@@ -993,7 +960,7 @@
                     
                     // Wait before polling again
                     if (!complete) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                     
                 } catch (error) {

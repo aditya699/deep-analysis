@@ -6,7 +6,7 @@ NOTE:
    so we need a basic implementation of background tasks so that api call doesn't timeout.
 '''
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from utils.file_processor import process_uploaded_file, get_task_status_from_db
 from fastapi.staticfiles import StaticFiles
@@ -78,22 +78,25 @@ async def startup_event():
 @app.get("/task/{task_id}")
 async def get_task_status_endpoint(task_id: str):
     """
-    Get the status of an analysis task from Redis
+    Get the status of an analysis task primarily from MongoDB,
+    with Redis used only for queue management.
     """
-    # print("I am being called")
-    # Import the Redis function
-    from utils.redis_tasks import get_task_status
-    
-    # Try to get task status from Redis first
-    redis_task = await get_task_status(task_id)
-    # print(f"Redis task: {redis_task}")
-    
-    if redis_task:
-        return redis_task
-    
-    # If not found in Redis, fall back to checking MongoDB
-    # This is useful for tasks created before we implemented Redis
+    # Always get task status from MongoDB for consistent data
     mongo_task = await get_task_status_from_db(task_id)
+    
+    # If task not found in MongoDB, check Redis queue status
+    if not mongo_task:
+        # Import the Redis function just for queue status
+        from utils.redis_tasks import get_task_status
+        redis_task = await get_task_status(task_id)
+        if redis_task:
+            return {
+                "task_id": redis_task.get("task_id"),
+                "status": redis_task.get("status", "pending"),
+                "progress": redis_task.get("progress", 0),
+                "message": redis_task.get("message", "Waiting in queue")
+            }
+        raise HTTPException(status_code=404, detail="Task not found")
     
     return mongo_task
 

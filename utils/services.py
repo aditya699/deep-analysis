@@ -133,26 +133,16 @@ async def load_data(file_path_or_url: str, client: Request):
 async def get_kpi(prompt:str,client:Request)->list:
     """
     This function will be talking to the manager agent to get the set of kpi's
-
-    Args:
-        prompt:str(This is detailed dataset description)
-        client:Request
-
-    Returns:
-        list
     """
     try:
-        #Initialize the manager agent
+        # Initialize the manager agent
         agent_manager = Agent(name="Manager", instructions=MANAGER_PROMPT, model="gpt-4.1-mini-2025-04-14", output_type=KPI)
 
-        #Run the manager agent
+        # Run the manager agent
         kpi_result = await Runner.run(agent_manager,prompt)
 
-        #Extract the kpi names from the kpi result
-        kpi_names = kpi_result.final_output.kpi_names[:2]
-
-        #Filter two kpi names for testing
-        # kpi_names = kpi_names[:2]
+        # Extract the kpi names from the kpi result and limit to 2
+        kpi_names = kpi_result.final_output.kpi_names[:2]  
 
         db = client['Python-Data-Analyst']
         collection = db['logs']
@@ -163,10 +153,9 @@ async def get_kpi(prompt:str,client:Request)->list:
             "kpi_names":kpi_names,
             "message":"KPI's extracted successfully(get_kpi)"
         }
-        #Insert the kpi names into the database
+        # Insert the kpi names into the database
         await collection.insert_one(dict)
 
-        #Return the kpi names
         return kpi_names
     except Exception as e:
         print(f"Error getting kpi: {e}")
@@ -178,8 +167,8 @@ async def get_kpi(prompt:str,client:Request)->list:
             "type":"error"
         }
         await collection.insert_one(dict)
+
         return HTTPException(status_code=500, detail=f"Error getting kpi: {e}")
-  
 
 async def execute_with_debug(code, namespace, kpi_name, dataset_prompt, client:Request, max_attempts=3):
     """
@@ -472,6 +461,7 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
     """
     db = client['Python-Data-Analyst']
     collection = db['logs']
+    print("kpi name is being visualized",kpi_name)
     
     try:
         f1 = StringIO()
