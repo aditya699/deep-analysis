@@ -60,7 +60,7 @@ async def enqueue_task(task_id:str,file_url:str):
 
 async def get_task_status(task_id: str):
     """
-    Get the current status and data for a task
+    Get the details of a task from redis
     
     Args:
         task_id: The task identifier
