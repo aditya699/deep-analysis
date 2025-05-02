@@ -377,6 +377,10 @@ The final report includes:
   - Detailed analysis results
   - Business insights and recommendations
 
+# Deployment Guide 
+
+- The backend application is currently deployed for demonstration purposes without a queue service, which limits its request handling capacity. As a result, you may encounter resource constraints. Now that the codebase is complete, you can deploy the application using Azure Web App and Azure Redis Cache. For the worker process, consider using Azure Virtual Machines or Azure Container Instances.
+
 ## License
 
 MIT License
