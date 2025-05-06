@@ -13,6 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from database.get_client import get_client
 import uvicorn
+from utils.db.process import get_blob_client, load_data_to_blob_storage,get_client_mongo,get_container_client
+from azure.storage.blob import BlobServiceClient
+from motor.motor_asyncio import AsyncIOMotorClient #type: ignore
+from fastapi import Depends
+import uuid
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -99,6 +105,30 @@ async def get_task_status_endpoint(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
     
     return mongo_task
+
+
+@app.post("/upload_db_file/")
+async def upload_db_file(
+    file: UploadFile = File(...),
+    container_client: BlobServiceClient = Depends(get_container_client), #Dependency injection for container client
+    db_client: AsyncIOMotorClient = Depends(get_client_mongo) #Dependency injection for mongo client
+):
+    """
+    Args:
+        file: UploadFile - The file to upload to the blob storage
+
+    This route can be used to upload a file to the blob storage 
+    """
+    try:
+        # Create a unique file name
+        unique_file_name = str(uuid.uuid4())
+        # Get blob client for this specific file
+        blob_client = await get_blob_client(container_client, unique_file_name)
+        response_dict = await load_data_to_blob_storage(file, blob_client, db_client)
+        return response_dict
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
