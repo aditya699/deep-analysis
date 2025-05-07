@@ -13,12 +13,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from database.get_client import get_client
 import uvicorn
-from utils.db.process import get_blob_client, load_data_to_blob_storage,get_client_mongo,get_container_client
+from utils.db.process import get_blob_client, load_data_to_blob_storage,get_client_mongo,get_container_client,get_client_redis
 from azure.storage.blob import BlobServiceClient
 from motor.motor_asyncio import AsyncIOMotorClient #type: ignore
 from fastapi import Depends
 import uuid
-
+import redis.asyncio as aioredis
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -111,7 +111,8 @@ async def get_task_status_endpoint(task_id: str):
 async def upload_db_file(
     file: UploadFile = File(...),
     container_client: BlobServiceClient = Depends(get_container_client), #Dependency injection for container client
-    db_client: AsyncIOMotorClient = Depends(get_client_mongo) #Dependency injection for mongo client
+    db_client: AsyncIOMotorClient = Depends(get_client_mongo),
+    redis_client: aioredis.Redis = Depends(get_client_redis) #Dependency injection for redis client
 ):
     """
     Args:
@@ -124,7 +125,8 @@ async def upload_db_file(
         unique_file_name = str(uuid.uuid4())
         # Get blob client for this specific file
         blob_client = await get_blob_client(container_client, unique_file_name)
-        response_dict = await load_data_to_blob_storage(file, blob_client, db_client)
+        response_dict = await load_data_to_blob_storage(file, blob_client, db_client, redis_client)
+
         return response_dict
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
