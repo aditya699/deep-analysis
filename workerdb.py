@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient #type: ignore
-
+from utils.db.bgprocess import process_file_background
 
 load_dotenv()
 
@@ -43,10 +43,9 @@ async def worker_process():
                     {"$set": {"status": "processing", "updated_at": datetime.now().isoformat()}}
                 )
                 
-                # Process the task (we'll implement this in the next step)
-                # For now just add a placeholder
-                print(f"Task data: {task}")
-                
+                # Here the processing will start
+                result = await process_file_background(task['file_url'])
+                print(result)
                 # Sleep a bit to avoid tight loops
                 await asyncio.sleep(1)
             else:

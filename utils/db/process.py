@@ -78,19 +78,17 @@ async def get_client_mongo():
         print(f"Failed to connect to MongoDB: {str(e)}")
         return None
 
-async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_client=None, redis_client=None)->dict:
+async def load_data_to_blob_storage(file:UploadFile, container_client=None, mongo_client=None, redis_client=None)->dict:
     '''
     Args:
         file:UploadFile
-        blob_client:BlobServiceClient(To upload the file to blob storage)
+        container_client:ContainerClient(To upload the file to blob storage)
         mongo_client:AsyncIOMotorClient(To save the file metadata to mongo db)
         redis_client:Redis client for task queue management
 
     Returns:
         A dictionary with the following keys:
             {file_name:str, file_url:str, created_at:datetime, updated_at:datetime, status:str}
-
-    NOTE: In the route we can define the blob_client and mongo_client as a dependency and pass it to this function
     '''
     try:
         # Create a unique file name
@@ -99,17 +97,24 @@ async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_cli
         # Read file content
         file_content = await file.read()
         
-        # Upload the file to blob storage
+        # Use container_client directly - it's already a ContainerClient
+        # so we don't need to specify container
+        blob_client = container_client.get_blob_client(unique_file_name)
         blob_client.upload_blob(file_content, overwrite=True)
         
-        #Get the storage account name from connection string
+        # Get the storage account name from connection string
         storage_account = os.getenv("BLOB_STORAGE_ACCOUNT_KEY").split(";")[1].split("=")[1]
         
         current_time = datetime.now()
         
+        # Construct proper URL - get container name from container_client
+        container_name = container_client.container_name
+        file_url = f"https://{storage_account}.blob.core.windows.net/{container_name}/{unique_file_name}"
+        
+        # Rest of the function remains the same
         data_dict = {
             "file_name": unique_file_name,
-            "file_url": f"https://{storage_account}.blob.core.windows.net/images-analysis/{unique_file_name}",
+            "file_url": file_url,
             "created_at": current_time,
             "updated_at": current_time,
             "status": "File uploaded successfully"
@@ -125,13 +130,13 @@ async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_cli
             "created_at": current_time.isoformat(),
             "updated_at": current_time.isoformat(),
             "status": "Task queued successfully",
-            "file_url": f"https://{storage_account}.blob.core.windows.net/images-analysis/{unique_file_name}" #This is important since using the url can load the file and do anything you want to do with it
+            "file_url": file_url
         }
 
-        #Post upload we need to push the task to the queue
+        # Post upload we need to push the task to the queue
         await enqueue_task(redis_dict, redis_client)
 
-        #Need to update the mongo db with the status task queued successfully
+        # Need to update the mongo db with the status task queued successfully
         await collection.update_one({"_id": result.inserted_id}, {"$set": {"status": "Task queued successfully"}})
         
         # Convert ObjectId to string in the response
@@ -140,11 +145,15 @@ async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_cli
     
     except Exception as e:
         print(f"Error uploading file to blob storage: {str(e)}")
+        # Error handling code remains the same
+        current_time = datetime.now()
+        storage_account = os.getenv("BLOB_STORAGE_ACCOUNT_KEY").split(";")[1].split("=")[1]
+        container_name = "images-analysis"  
         error_dict = {
-            "file_name": unique_file_name,
-            "file_url": f"https://{storage_account}.blob.core.windows.net/images-analysis/{unique_file_name}",
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            "file_name": unique_file_name if 'unique_file_name' in locals() else "unknown",
+            "file_url": f"https://{storage_account}.blob.core.windows.net/{container_name}/{unique_file_name if 'unique_file_name' in locals() else 'unknown'}",
+            "created_at": current_time.isoformat(),
+            "updated_at": current_time.isoformat(),
             "status": f"Error uploading file: {str(e)}",
             "class": "error"
         }

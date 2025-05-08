@@ -110,9 +110,9 @@ async def get_task_status_endpoint(task_id: str):
 @app.post("/upload_db_file/")
 async def upload_db_file(
     file: UploadFile = File(...),
-    container_client: BlobServiceClient = Depends(get_container_client), #Dependency injection for container client
+    container_client: BlobServiceClient = Depends(get_container_client), 
     db_client: AsyncIOMotorClient = Depends(get_client_mongo),
-    redis_client: aioredis.Redis = Depends(get_client_redis) #Dependency injection for redis client
+    redis_client: aioredis.Redis = Depends(get_client_redis)
 ):
     """
     Args:
@@ -121,11 +121,8 @@ async def upload_db_file(
     This route can be used to upload a file to the blob storage 
     """
     try:
-        # Create a unique file name
-        unique_file_name = str(uuid.uuid4())
-        # Get blob client for this specific file
-        blob_client = await get_blob_client(container_client, unique_file_name)
-        response_dict = await load_data_to_blob_storage(file, blob_client, db_client, redis_client)
+        # Simply pass container_client directly, skipping the get_blob_client step
+        response_dict = await load_data_to_blob_storage(file, container_client, db_client, redis_client)
 
         return response_dict
     except Exception as e:
