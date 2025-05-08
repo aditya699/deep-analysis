@@ -112,8 +112,10 @@ Please render a paragraph that:
 Your summary should be approximately 250-300 words, well-structured, and focused on business implications rather than technical details. Emphasize how these insights connect to business objectives, market position, and potential growth opportunities.
 """
 
-
-
+TITLE_PROMPT="""
+Based on the columns provided, think of a suitable dashboard title that encapsulates the key insights and themes of the data. Consider the main focus areas and the audience for the dashboard to ensure the title is both engaging and informative.
+Only return the title, no other text or explanations.
+"""
 
 
 

@@ -10,6 +10,9 @@ from utils.db.process import get_client_mongo
 from azure.storage.blob import BlobServiceClient, ContainerClient
 from datetime import datetime
 from utils.db.process import get_blob_client, get_container_client
+from utils.db.schemas import title_schema
+from agents import Agent,Runner
+from utils.prompts import TITLE_PROMPT
 
 async def read_file_from_blob_to_df(blob_url: str) -> pd.DataFrame:
     '''
@@ -62,6 +65,7 @@ async def read_file_from_blob_to_df(blob_url: str) -> pd.DataFrame:
         raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
 
 async def process_file_background(blob_url: str) -> str:
+
     '''
     Background task to process files from blob storage.
     This function will be called by the background worker.
@@ -89,24 +93,57 @@ async def process_file_background(blob_url: str) -> str:
             await collection.update_one(
                 {"file_url": blob_url},
                 {"$set": {
-                    "status": "completed",
+                    "status": "Data Loaded in DataFrame",
                     "columns": columns,
                     "updated_at": datetime.now().isoformat()
                 }}
             )
-            
+
             return f"Processing completed. Columns: {columns}"
         except Exception as e:
             # Update MongoDB with error status
             await collection.update_one(
                 {"file_url": blob_url},
                 {"$set": {
-                    "status": "failed",
+                    "status": "error",
                     "error_message": str(e),
                     "updated_at": datetime.now().isoformat()
                 }}
             )
             raise e
             
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+async def get_dashboard_title(file_name:str,mongo_client=None)->str:
+    '''
+    This function will be used to generate a title for the dashboard.
+
+    Args:
+        file_name (str): The name of the file
+        
+    Returns:
+        str: The title of the dashboard
+        
+    
+    '''
+    try:
+        df=await read_file_from_blob_to_df(file_name)
+        columns=df.columns.tolist()
+        prompt=TITLE_PROMPT+"Here are the columns of the dataframe: "+str(columns)
+        agent_title=Agent(name="Title",instructions=TITLE_PROMPT,model="gpt-4.1-nano-2025-04-14",output_type=title_schema)
+        title_result=await Runner.run(agent_title,prompt)
+        title=title_result.final_output.title
+
+        # Update MongoDB with title
+        if mongo_client is None:
+            mongo_client = await get_client_mongo()
+        db = mongo_client["Python-Data-Analyst"]
+        collection = db["file_uploads-db"]
+        await collection.update_one(
+            {"file_url": file_name},
+            {"$set": {"title": title}}
+        )
+        return title
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
