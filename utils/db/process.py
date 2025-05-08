@@ -1,7 +1,6 @@
 '''
 This file contains code to load the data and put in blob storage
 '''
-
 from fastapi import UploadFile
 import uuid
 from azure.storage.blob import BlobServiceClient
@@ -17,10 +16,7 @@ import redis.asyncio as aioredis
 import pandas as pd
 import io
 import requests
-
-
 load_dotenv()   
-
 
 async def get_container_client()->BlobServiceClient:
     '''
