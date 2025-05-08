@@ -21,3 +21,13 @@ async def enqueue_task(task_data):
 # LRANGE helps you view all the list items in the queue
 127.0.0.1:6379> LRANGE task_queue 0 -1
 1) "{\"file_name\": \"51b1ec9d-d627-436e-a1b9-b42a61b130d6\", \"created_at\": \"2025-05-07T16:55:43.382828\", \"updated_at\": \"2025-05-07T16:55:43.382828\", \"status\": \"queued\"}"
+
+# We need a worker node to that we can achieve the real "Background Tasks" not just do processing in the 
+# api server.Api server is just to receive the request and respond not do heavy processing.
+
+# A worker node is necessary in your architecture for the following reasons:
+
+# Background Processing: Your app is enqueueing tasks in Redis, but these tasks need to be processed without blocking the main API. The worker node runs separately from your main application.
+# Resource Intensive Operations: Downloading and processing files from Blob storage can be time-consuming. A separate worker prevents these operations from causing API timeouts.
+# Scalability: You can run multiple worker nodes to process tasks in parallel as your application scales.
+# Reliability: If the main app crashes, queued tasks won't be lost and will still be processed once the worker picks them up.

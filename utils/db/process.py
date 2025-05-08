@@ -14,6 +14,9 @@ from fastapi import HTTPException
 from bson import ObjectId
 import json
 import redis.asyncio as aioredis
+import pandas as pd
+import io
+import requests
 
 
 load_dotenv()   
@@ -121,7 +124,8 @@ async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_cli
             "file_name": unique_file_name,
             "created_at": current_time.isoformat(),
             "updated_at": current_time.isoformat(),
-            "status": "Task queued successfully"
+            "status": "Task queued successfully",
+            "file_url": f"https://{storage_account}.blob.core.windows.net/images-analysis/{unique_file_name}" #This is important since using the url can load the file and do anything you want to do with it
         }
 
         #Post upload we need to push the task to the queue
@@ -145,6 +149,53 @@ async def load_data_to_blob_storage(file:UploadFile, blob_client=None, mongo_cli
             "class": "error"
         }
         raise HTTPException(status_code=500, detail=error_dict)
+
+async def read_file_from_blob_to_df(blob_url: str) -> pd.DataFrame:
+    '''
+    Reads a file from blob storage and converts it to a pandas DataFrame
+    
+    Args:
+        blob_url (str): The URL of the blob storage file
+        
+    Returns:
+        pd.DataFrame: The data loaded into a pandas DataFrame
+        
+    Raises:
+        HTTPException: If there's an error reading the file
+    '''
+    try:
+        # Download the file content
+        response = requests.get(blob_url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        
+        # Get the file extension from the URL
+        file_extension = blob_url.split('.')[-1].lower()
+        
+        # Read the content into a pandas DataFrame based on file type
+        if file_extension in ['csv']:
+            df = pd.read_csv(io.StringIO(response.text))
+        elif file_extension in ['xlsx', 'xls']:
+            df = pd.read_excel(io.BytesIO(response.content))
+        elif file_extension in ['json']:
+            df = pd.read_json(io.StringIO(response.text))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type: {file_extension}. Supported types are: csv, xlsx, xls, json"
+            )
+            
+        return df
+        
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error downloading file from blob storage: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error reading file into DataFrame: {str(e)}"
+        )
 
 
 
