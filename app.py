@@ -127,9 +127,10 @@ async def get_title(file_url: str,mongo_client:AsyncIOMotorClient=Depends(get_cl
     """
     Args:
         file_url: str - The URL of the file to get the title of
+
         mongo_client: AsyncIOMotorClient - The MongoDB client
     Returns:
-        str - The title of the file
+        str - The title of the file which will be used as dashboard title.
     """
     try:
         file_url = file_url.strip('"\'')

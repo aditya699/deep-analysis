@@ -31,7 +31,6 @@ async def get_container_client()->BlobServiceClient:
     container_client = blob_service_client.get_container_client("images-analysis")
     return container_client
 
-
 async def get_blob_client(container_client: BlobServiceClient, unique_file_name: str) -> BlobServiceClient:
     '''
     This function returns a blob client for a specific file
@@ -42,7 +41,6 @@ async def get_blob_client(container_client: BlobServiceClient, unique_file_name:
         BlobClient
     '''
     return container_client.get_blob_client(unique_file_name)
-
 
 async def get_client_redis():
     redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
