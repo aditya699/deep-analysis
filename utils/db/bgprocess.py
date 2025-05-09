@@ -13,6 +13,7 @@ from utils.db.process import get_blob_client, get_container_client
 from utils.db.schemas import title_schema
 from agents import Agent,Runner
 from utils.prompts import TITLE_PROMPT
+from utils.db.filters import get_filters
 
 async def read_file_from_blob_to_df(blob_url: str) -> pd.DataFrame:
     '''
@@ -107,7 +108,17 @@ async def process_file_background(blob_url: str) -> str:
                 {"file_url": blob_url},
                 {"$set": {"title": title,"updated_at": datetime.now().isoformat(),"status":"Dashboard Title Generated"}}
             )
+            print("Dashboard Title Generated")
 
+            #Get the filters
+            filters=await get_filters(df)
+
+            #Update MongoDB with filters
+            await collection.update_one(
+                {"file_url": blob_url},
+                {"$set": {"filters": filters,"updated_at": datetime.now().isoformat(),"status":"Filters Generated"}}
+            )
+            print("Filters Generated")
             return f"Processing completed. Columns: {columns}"
         except Exception as e:
             # Update MongoDB with error status
