@@ -13,13 +13,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from database.get_client import get_client
 import uvicorn
-from utils.db.process import get_blob_client, load_data_to_blob_storage, get_client_mongo, get_container_client, get_client_redis
+from utils.db.process import get_blob_client, load_data_to_blob_storage, get_client_mongo, get_container_client, get_client_redis, get_task_status_for_dashboard
+from utils.db.filters import get_filters
 from azure.storage.blob import BlobServiceClient
 from motor.motor_asyncio import AsyncIOMotorClient  # type: ignore
 from fastapi import Depends
 import uuid
 import redis.asyncio as aioredis
 from utils.db.bgprocess import get_dashboard_title
+from bson import ObjectId
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -121,22 +123,13 @@ async def upload_db_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
-@dashboard_router.post("/title/")
-async def get_title(file_url: str,mongo_client:AsyncIOMotorClient=Depends(get_client_mongo)):
+@dashboard_router.get("/task")
+async def get_db_task_status_endpoint(file_url: str, mongo_client: AsyncIOMotorClient = Depends(get_client_mongo)):
     """
-    Args:
-        file_url: str - The URL of the file to get the title of
-
-        mongo_client: AsyncIOMotorClient - The MongoDB client
-    Returns:
-        str - The title of the file which will be used as dashboard title.
+    Get the status of an analysis task primarily from MongoDB,
+    with Redis used only for queue management.
     """
-    try:
-        file_url = file_url.strip('"\'')
-        return await get_dashboard_title(file_url,mongo_client)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return await get_task_status_for_dashboard(file_url, mongo_client)
 
 @app.on_event("startup")
 async def startup_event():

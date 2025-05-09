@@ -153,53 +153,21 @@ async def load_data_to_blob_storage(file:UploadFile, container_client=None, mong
         }
         raise HTTPException(status_code=500, detail=error_dict)
 
-async def read_file_from_blob_to_df(blob_url: str) -> pd.DataFrame:
+# Minimal helper to serialize MongoDB documents
+
+def serialize_mongo_document(doc):
+    if doc and '_id' in doc and isinstance(doc['_id'], ObjectId):
+        doc['_id'] = str(doc['_id'])
+    return doc
+
+async def get_task_status_for_dashboard(file_url:str,mongo_client:AsyncIOMotorClient):
     '''
-    Reads a file from blob storage and converts it to a pandas DataFrame
-    
-    Args:
-        blob_url (str): The URL of the blob storage file
-        
-    Returns:
-        pd.DataFrame: The data loaded into a pandas DataFrame
-        
-    Raises:
-        HTTPException: If there's an error reading the file
+    This function will get the task status from the database
     '''
     try:
-        # Download the file content
-        response = requests.get(blob_url)
-        response.raise_for_status()  # Raise an exception for bad status codes
-        
-        # Get the file extension from the URL
-        file_extension = blob_url.split('.')[-1].lower()
-        
-        # Read the content into a pandas DataFrame based on file type
-        if file_extension in ['csv']:
-            df = pd.read_csv(io.StringIO(response.text))
-        elif file_extension in ['xlsx', 'xls']:
-            df = pd.read_excel(io.BytesIO(response.content))
-        elif file_extension in ['json']:
-            df = pd.read_json(io.StringIO(response.text))
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file type: {file_extension}. Supported types are: csv, xlsx, xls, json"
-            )
-            
-        return df
-        
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error downloading file from blob storage: {str(e)}"
-        )
+        db=mongo_client["Python-Data-Analyst"]
+        collection=db["file_uploads-db"]
+        task=await collection.find_one({"file_url":file_url})
+        return serialize_mongo_document(task)
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error reading file into DataFrame: {str(e)}"
-        )
-
-
-
-
+        raise HTTPException(status_code=500, detail=str(e))

@@ -99,6 +99,15 @@ async def process_file_background(blob_url: str) -> str:
                 }}
             )
 
+            # Get the dashboard title
+            title=await get_dashboard_title(df)
+
+            #Update MongoDB with title
+            await collection.update_one(
+                {"file_url": blob_url},
+                {"$set": {"title": title,"updated_at": datetime.now().isoformat(),"status":"Dashboard Title Generated"}}
+            )
+
             return f"Processing completed. Columns: {columns}"
         except Exception as e:
             # Update MongoDB with error status
@@ -115,35 +124,24 @@ async def process_file_background(blob_url: str) -> str:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-async def get_dashboard_title(file_name:str,mongo_client=None)->str:
+async def get_dashboard_title(df:pd.DataFrame)->str:
     '''
     This function will be used to generate a title for the dashboard.
 
     Args:
-        file_name (str): The name of the file
-        
+        df (pd.DataFrame): The dataframe to get the title of
+        mongo_client (AsyncIOMotorClient): The MongoDB client
     Returns:
         str: The title of the dashboard
         
     
     '''
     try:
-        df=await read_file_from_blob_to_df(file_name)
         columns=df.columns.tolist()
         prompt=TITLE_PROMPT+"Here are the columns of the dataframe: "+str(columns)
         agent_title=Agent(name="Title",instructions=TITLE_PROMPT,model="gpt-4.1-nano-2025-04-14",output_type=title_schema)
         title_result=await Runner.run(agent_title,prompt)
         title=title_result.final_output.title
-
-        # Update MongoDB with title
-        if mongo_client is None:
-            mongo_client = await get_client_mongo()
-        db = mongo_client["Python-Data-Analyst"]
-        collection = db["file_uploads-db"]
-        await collection.update_one(
-            {"file_url": file_name},
-            {"$set": {"title": title}}
-        )
         return title
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
