@@ -149,7 +149,7 @@ async def get_kpi(prompt:str,client:Request)->list:
         kpi_result = await Runner.run(agent_manager,prompt)
 
         #Extract the kpi names from the kpi result
-        kpi_names = kpi_result.final_output.kpi_names[:5]
+        kpi_names = kpi_result.final_output.kpi_names[:10]
 
         #Filter two kpi names for testing
         # kpi_names = kpi_names[:2]
@@ -495,6 +495,8 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
             
         # Remove plt.show() if it exists as it can block the backend
         clean_python_code = clean_python_code.replace("plt.show()", "")
+
+        clean_python_code = clean_python_code.replace("plt.savefig", "# plt.savefig")
             
         # Add code to save figure to blob storage
         save_code = f"\n# Save figure to blob storage\nplt.savefig('{file_name}')\n"
@@ -511,6 +513,8 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
             clean_python_code = clean_python_code.replace("import matplotlib.pyplot", f"{matplotlib_import_line}import matplotlib.pyplot")
         elif "import matplotlib" not in clean_python_code:
             clean_python_code = f"{matplotlib_import_line}{clean_python_code}"
+
+        print(clean_python_code)
 
         # Create a namespace for the python code
         namespace = {"df": df, "pd": pd, "np": np}
