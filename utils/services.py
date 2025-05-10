@@ -455,6 +455,23 @@ async def get_analysis_insights(kpi_name:str, client:Request, analysis_result:st
         
         return HTTPException(status_code=500, detail=f"Error getting analysis insights: {error_message}")
 
+def sanitize_kpi_name(kpi_name: str) -> str:
+    """
+    Sanitizes a KPI name by removing special characters and replacing spaces with underscores.
+    
+    Args:
+        kpi_name: str - The original KPI name
+        
+    Returns:
+        str - Sanitized KPI name safe for filenames
+    """
+    # Replace special characters with underscores
+    sanitized = ''.join(c if c.isalnum() or c.isspace() else '_' for c in kpi_name)
+    # Replace spaces with underscores
+    sanitized = sanitized.replace(' ', '_')
+    # Remove multiple consecutive underscores
+    sanitized = '_'.join(filter(None, sanitized.split('_')))
+    return sanitized
 
 async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df:pd.DataFrame, blob_client:Request)->dict:
     """
@@ -476,7 +493,9 @@ async def get_visualization(kpi_name:str, dataset_prompt:str, client:Request, df
     try:
         f1 = StringIO()
         unique_id = str(uuid.uuid4())
-        file_name = f"{kpi_name.replace(' ', '_')}_{unique_id}.png"
+        # Sanitize the KPI name before using it in the filename
+        sanitized_kpi_name = sanitize_kpi_name(kpi_name)
+        file_name = f"{sanitized_kpi_name}_{unique_id}.png"
         container_name = "images-analysis"
         
         # Initialize the visualization agent
