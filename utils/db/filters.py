@@ -22,6 +22,8 @@ async def get_filters(df:pd.DataFrame):
     for column,datatype in columns_datatypes.items():
         if datatype in ["int64","float64","int32","float32"]:
             output_dict.pop(column)
+
+        
     return output_dict
 
 

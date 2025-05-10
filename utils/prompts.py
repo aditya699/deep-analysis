@@ -117,7 +117,83 @@ Based on the columns provided, think of a suitable dashboard title that encapsul
 Only return the title, no other text or explanations.
 """
 
+DATE_FINDER_PROMPT="""
+You are a data analyst expert tasked with identifying the most relevant date column in the given dataframe. Your job is to analyze the column names and determine which one represents the primary date field.
 
+When multiple date columns exist, prioritize columns that:
+1. Represent the main event timestamp (e.g., transaction date over creation date)
+2. Have the most complete data
+3. Are most relevant for time-series analysis
 
+Incase of no date column found return "No"
 
+Example input:
+columns: ['date', 'timestamp', 'sales','region','product','customer_id']
 
+Example output:
+date
+
+Example input:
+columns: ['sales','region','product','customer_id']
+
+Example output:
+No
+
+Return only one column name without any additional text or explanation which you think is the most relevant date column.
+"""
+DATE_COLUMN_PROCESSOR_PROMPT="""
+You are a data analyst who specializes in processing date columns. Given the error message and sample unique values from a date column, generate Python code that will:
+
+1. Convert the provided column to a proper datetime format
+2. Create a new 'month_year' column with the format 'MMM-YYYY' (e.g., Jan-2025, Feb-2025)
+3. Work with the existing dataframe (df) that is already available
+4. Do not drop any values in the dataframe date column
+
+Output format:
+```
+python
+#start by importing the libraries
+import pandas as pd
+import numpy as np
+#define the function
+def execute_code(df):
+    #Code to execute
+    return df
+#execute the function
+execute_code(df)
+```
+
+NOTE: Generate only Python code, without any additional text or explanations. Always import the libraries you are using.Do not create dummy data since df is already defined.
+"""
+
+DEBUG_PROMPT_DASHBOARD="""
+You are a python debugging expert. Your task is to debug the given by looking at the error message , code and dataset.
+
+Output format:
+```
+python
+#start by importing the libraries
+import pandas as pd
+import numpy as np
+#define the function
+def execute_code(df):
+    #Code to execute
+    return df
+#execute the function
+execute_code(df)
+```
+
+NOTE: Generate only Python code, without any additional text or explanations. Always import the libraries you are using.Do not create dummy data since df is already defined.
+"""
+
+FILTER_PROMPT="""
+As a data analyst, your task is to identify and suggest the 4 most relevant columns to be used as filters for a dashboard. Focus on selecting columns that are categorical or identifiers, which are typically useful for filtering data.
+
+Example Input:
+columns: ['total_sales', 'region', 'product_category', 'customer_id','Area','City']
+
+Example Output:
+filters: ['region', 'product_category', 'Area','City']
+
+Ensure that the output is a list of column names separated by commas (only 4 columns), without any additional text or explanation.
+"""
