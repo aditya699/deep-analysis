@@ -10,21 +10,22 @@ So this is will all this needs to be done in a worker node.Before working on fil
 (Fixed)
 
 '''
-import pandas as pd
+from motor.motor_asyncio import AsyncIOMotorClient #type: ignore
+from fastapi import HTTPException
 
+async def get_filters(file_url:str,mongo_client:AsyncIOMotorClient):
+    try:
+        db=mongo_client["Python-Data-Analyst"]
+        collection=db["file_uploads-db"]
+        task=await collection.find_one({"file_url":file_url})
+        if task:
+            return task["all_filters"]
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
-async def get_filters(df:pd.DataFrame):
-    columns_datatypes=df.dtypes.to_dict()
-    output_dict={}
-    for column,datatype in columns_datatypes.items():
-        output_dict[column]={"type":str(datatype)}
-    #For iteration 1 we will remove all columns from the output_dict which have int or float datatype
-    for column,datatype in columns_datatypes.items():
-        if datatype in ["int64","float64","int32","float32"]:
-            output_dict.pop(column)
-
-        
-    return output_dict
 
 
 

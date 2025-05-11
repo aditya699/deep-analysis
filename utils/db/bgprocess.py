@@ -92,13 +92,16 @@ async def process_file_background(blob_url: str) -> str:
         try:
             df = await read_file_from_blob_to_df(blob_url)
             columns = df.columns.tolist()
-            
+            #filter out all columns with int or float datatype
+            all_filters=[column for column in columns if df[column].dtype not in ["int64","float64","int32","float32"]]
+            print("All Filters: ",all_filters)
             # Update MongoDB with success status
             await collection.update_one(
                 {"file_url": blob_url},
                 {"$set": {
                     "status": "Data Loaded in DataFrame",
                     "columns": columns,
+                    "all_filters": all_filters,
                     "updated_at": datetime.now().isoformat()
                 }}
             )
@@ -119,7 +122,6 @@ async def process_file_background(blob_url: str) -> str:
             print(filters)
             print(date_column)
             if date_column != "No":
-                print("i Am here")
                 # Check if month_year is a column in the dataframe
                 if 'month_year' in df.columns:
                     print(df["month_year"].unique())

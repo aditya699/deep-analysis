@@ -131,6 +131,20 @@ async def get_db_task_status_endpoint(file_url: str, mongo_client: AsyncIOMotorC
     """
     return await get_task_status_for_dashboard(file_url, mongo_client)
 
+@dashboard_router.get("/get_all_filters")
+async def get_all_filters(file_url: str, mongo_client: AsyncIOMotorClient = Depends(get_client_mongo)):
+    """
+    Get all filters for a dashboard
+    """
+    try:
+        filters=await get_filters(file_url,mongo_client)
+        if filters:
+            return filters
+        else:
+            raise HTTPException(status_code=404, detail="No filters found") # 404 is not found
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) # 500 is internal server error
+
 @app.on_event("startup")
 async def startup_event():
     # Get database connection
