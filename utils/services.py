@@ -149,7 +149,7 @@ async def get_kpi(prompt:str,client:Request)->list:
         kpi_result = await Runner.run(agent_manager,prompt)
 
         #Extract the kpi names from the kpi result
-        kpi_names = kpi_result.final_output.kpi_names[:6]
+        kpi_names = kpi_result.final_output.kpi_names[:3]
 
         #Filter two kpi names for testing
         # kpi_names = kpi_names[:2]
