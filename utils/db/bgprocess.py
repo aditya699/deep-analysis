@@ -95,7 +95,7 @@ async def process_file_background(blob_url: str) -> str:
             #filter out all columns with int or float datatype
             all_filters=[column for column in columns if df[column].dtype not in ["int64","float64","int32","float32"]]
             print("All Filters: ",all_filters)
-            # Update MongoDB with success status
+            # Update MongoDB with success status and all filters and columns
             await collection.update_one(
                 {"file_url": blob_url},
                 {"$set": {
@@ -142,6 +142,12 @@ async def process_file_background(blob_url: str) -> str:
 
             print("Date Column Generated")
             print("Filters Generated")
+            
+            #Are we able to print values in the filter
+            for i in filters:
+                print(len(df[i].unique()))
+
+
             return f"Processing completed. Columns: {columns}, Filters: {filters}, Date Column: {date_column}"
         except Exception as e:
             # Update MongoDB with error status
